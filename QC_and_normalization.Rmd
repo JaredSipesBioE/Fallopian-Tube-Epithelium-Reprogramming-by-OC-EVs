@@ -1,0 +1,20 @@
+---
+title: "qc_and_normalization"
+author: "Jared Sipes"
+date: "2025-04-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+
+This is the first document in the project. (For a table of contents, sea Readme)
+
+This file contains the preliminary QC, Filtering, and Normalization of the GeoMx Dataset. 
+
+All analysis follows the Bioconductor vignette:
+
+[Analyzing GeoMx-NGS RNA Expression Data with GeomxTools (bioconductor.org)](https://www.bioconductor.org/packages/release/workflows/vignettes/GeoMxWorkflows/inst/doc/GeomxTools_RNA-NGS_Analysis.html#5_Normalization)
