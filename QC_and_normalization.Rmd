@@ -1173,3 +1173,8 @@ The output for Supplemental Figure 2 is generated below
 
 ```
 
+
+
+Our collaborators used this dataset to perform gene expression analysis. The resulting differentially expressed genes are located in the analysis folder. 
+
+

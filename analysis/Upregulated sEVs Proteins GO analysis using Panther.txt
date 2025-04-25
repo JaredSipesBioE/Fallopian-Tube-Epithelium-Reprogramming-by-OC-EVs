@@ -1,0 +1,80 @@
+Analysis Type:	PANTHER Overrepresentation Test (Released 20240807)						
+Annotation Version and Release Date:	GO Ontology database DOI:  10.5281/zenodo.12173881 Released 2024-06-17						
+Analyzed List:	upload_1 (Homo sapiens)						
+Reference List:	Homo sapiens (all genes in database)						
+Test Type:	FISHER						
+Correction:	FDR						
+GO biological process complete	Homo sapiens - REFLIST (20580)	upload_1 (42)	upload_1 (expected)	upload_1 (over/under)	upload_1 (fold Enrichment)	upload_1 (raw P-value)	upload_1 (FDR)
+epithelial cell morphogenesis involved in placental branching (GO:0060672)	3	2	0.01	+	 > 100	1.22E-05	9.21E-03
+epithelial cell differentiation involved in embryonic placenta development (GO:0060671)	3	2	0.01	+	 > 100	1.22E-05	8.77E-03
+regulation of homophilic cell adhesion (GO:1903385)	3	2	0.01	+	 > 100	1.22E-05	8.37E-03
+L-glutamine import across plasma membrane (GO:1903803)	4	2	0.01	+	 > 100	2.43E-05	1.42E-02
+myoblast fusion involved in skeletal muscle regeneration (GO:0014905)	5	2	0.01	+	 > 100	4.05E-05	1.75E-02
+glutamine transport (GO:0006868)	9	2	0.02	+	 > 100	1.45E-04	4.14E-02
+"CD4-positive, alpha-beta T cell proliferation (GO:0035739)"	9	2	0.02	+	 > 100	1.45E-04	4.06E-02
+L-serine transport (GO:0015825)	9	2	0.02	+	 > 100	1.45E-04	3.99E-02
+myotube differentiation involved in skeletal muscle regeneration (GO:0014908)	9	2	0.02	+	 > 100	1.45E-04	3.92E-02
+serine transport (GO:0032329)	10	2	0.02	+	98	1.81E-04	4.35E-02
+intracellular phosphate ion homeostasis (GO:0030643)	10	2	0.02	+	98	1.81E-04	4.28E-02
+negative regulation of platelet aggregation (GO:0090331)	11	2	0.02	+	89.09	2.21E-04	4.84E-02
+regulation of metallopeptidase activity (GO:1905048)	11	2	0.02	+	89.09	2.21E-04	4.77E-02
+proline transport (GO:0015824)	11	2	0.02	+	89.09	2.21E-04	4.71E-02
+negative regulation of platelet activation (GO:0010544)	18	3	0.04	+	81.67	6.31E-06	5.97E-03
+cellular response to low-density lipoprotein particle stimulus (GO:0071404)	30	3	0.06	+	49	3.09E-05	1.51E-02
+response to lipoprotein particle (GO:0055094)	30	3	0.06	+	49	3.09E-05	1.46E-02
+cellular response to lipoprotein particle stimulus (GO:0071402)	33	3	0.07	+	44.55	4.13E-05	1.74E-02
+epithelial cell morphogenesis (GO:0003382)	34	3	0.07	+	43.24	4.53E-05	1.80E-02
+amino acid import across plasma membrane (GO:0089718)	38	3	0.08	+	38.68	6.34E-05	2.34E-02
+negative regulation of blood coagulation (GO:0030195)	45	3	0.09	+	32.67	1.06E-04	3.40E-02
+negative regulation of hemostasis (GO:1900047)	46	3	0.09	+	31.96	1.13E-04	3.48E-02
+negative regulation of coagulation (GO:0050819)	48	3	0.1	+	30.62	1.28E-04	3.80E-02
+negative regulation of wound healing (GO:0061045)	68	4	0.14	+	28.82	1.11E-05	9.32E-03
+neutral amino acid transport (GO:0015804)	53	3	0.11	+	27.74	1.72E-04	4.35E-02
+regulation of platelet activation (GO:0010543)	53	3	0.11	+	27.74	1.72E-04	4.27E-02
+vascular transport (GO:0010232)	86	4	0.18	+	22.79	2.82E-05	1.47E-02
+transport across blood-brain barrier (GO:0150104)	86	4	0.18	+	22.79	2.82E-05	1.42E-02
+negative regulation of response to wounding (GO:1903035)	91	4	0.19	+	21.54	3.52E-05	1.61E-02
+negative regulation of cell-cell adhesion (GO:0022408)	195	7	0.4	+	17.59	1.25E-07	9.48E-04
+regulation of wound healing (GO:0061041)	130	4	0.27	+	15.08	1.41E-04	4.11E-02
+amino acid transport (GO:0006865)	132	4	0.27	+	14.85	1.50E-04	3.97E-02
+regulation of mononuclear cell migration (GO:0071675)	138	4	0.28	+	14.2	1.78E-04	4.34E-02
+negative regulation of cell adhesion (GO:0007162)	291	8	0.59	+	13.47	1.13E-07	1.71E-03
+plasma membrane organization (GO:0007009)	148	4	0.3	+	13.24	2.32E-04	4.88E-02
+biological process involved in interaction with host (GO:0051701)	149	4	0.3	+	13.15	2.38E-04	4.94E-02
+protein localization to plasma membrane (GO:0072659)	196	5	0.4	+	12.5	4.76E-05	1.84E-02
+wound healing (GO:0042060)	321	8	0.66	+	12.21	2.39E-07	1.20E-03
+negative regulation of cell activation (GO:0050866)	210	5	0.43	+	11.67	6.60E-05	2.38E-02
+negative regulation of cell motility (GO:2000146)	304	7	0.62	+	11.28	2.48E-06	3.75E-03
+vascular process in circulatory system (GO:0003018)	269	6	0.55	+	10.93	1.67E-05	1.05E-02
+negative regulation of locomotion (GO:0040013)	322	7	0.66	+	10.65	3.63E-06	3.92E-03
+protein localization to cell periphery (GO:1990778)	237	5	0.48	+	10.34	1.17E-04	3.53E-02
+negative regulation of cell migration (GO:0030336)	289	6	0.59	+	10.17	2.50E-05	1.40E-02
+biological process involved in symbiotic interaction (GO:0044403)	256	5	0.52	+	9.57	1.67E-04	4.29E-02
+response to wounding (GO:0009611)	429	8	0.88	+	9.14	2.12E-06	3.56E-03
+regulation of cell-cell adhesion (GO:0022407)	490	9	1	+	9	5.07E-07	1.53E-03
+negative regulation of response to external stimulus (GO:0032102)	384	7	0.78	+	8.93	1.15E-05	9.12E-03
+regulation of body fluid levels (GO:0050878)	354	6	0.72	+	8.31	7.72E-05	2.65E-02
+protein localization to membrane (GO:0072657)	459	7	0.94	+	7.47	3.60E-05	1.60E-02
+organic anion transport (GO:0015711)	400	6	0.82	+	7.35	1.51E-04	3.93E-02
+import into cell (GO:0098657)	690	10	1.41	+	7.1	9.37E-07	2.02E-03
+localization within membrane (GO:0051668)	548	7	1.12	+	6.26	1.10E-04	3.46E-02
+regulation of cell adhesion (GO:0030155)	785	10	1.6	+	6.24	2.99E-06	3.48E-03
+regulation of cell motility (GO:2000145)	1001	12	2.04	+	5.87	4.69E-07	1.77E-03
+regulation of cell migration (GO:0030334)	941	11	1.92	+	5.73	2.00E-06	3.78E-03
+regulation of secretion (GO:0051046)	600	7	1.22	+	5.72	1.92E-04	4.47E-02
+regulation of locomotion (GO:0040012)	1042	12	2.13	+	5.64	7.18E-07	1.81E-03
+negative regulation of cell population proliferation (GO:0008285)	700	8	1.43	+	5.6	7.29E-05	2.56E-02
+response to endogenous stimulus (GO:0009719)	1375	12	2.81	+	4.28	1.27E-05	8.37E-03
+regulation of cell population proliferation (GO:0042127)	1665	14	3.4	+	4.12	2.95E-06	3.72E-03
+regulation of transport (GO:0051049)	1576	13	3.22	+	4.04	9.20E-06	8.18E-03
+vesicle-mediated transport (GO:0016192)	1298	10	2.65	+	3.78	2.21E-04	4.91E-02
+biological process involved in interspecies interaction between organisms (GO:0044419)	1548	11	3.16	+	3.48	2.04E-04	4.67E-02
+regulation of localization (GO:0032879)	1984	14	4.05	+	3.46	2.24E-05	1.36E-02
+response to stress (GO:0006950)	3411	20	6.96	+	2.87	2.85E-06	3.91E-03
+system development (GO:0048731)	3527	18	7.2	+	2.5	8.30E-05	2.73E-02
+multicellular organism development (GO:0007275)	3945	20	8.05	+	2.48	2.76E-05	1.49E-02
+anatomical structure development (GO:0048856)	5208	23	10.63	+	2.16	4.83E-05	1.82E-02
+multicellular organismal process (GO:0032501)	6239	27	12.73	+	2.12	5.85E-06	5.90E-03
+developmental process (GO:0032502)	5711	24	11.66	+	2.06	7.93E-05	2.66E-02
+response to stimulus (GO:0050896)	8080	30	16.49	+	1.82	4.20E-05	1.72E-02
+cellular process (GO:0009987)	14769	40	30.14	+	1.33	2.13E-04	4.80E-02
