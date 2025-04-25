@@ -13,7 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Contains code used to generate main figures.
 
-Note that Figures 1 and 2 do not contain any figures generated using the GeoMx or Mass spec data, and are therefotre not included.
+Note that Figures 1 and 2 do not contain any figures generated using the GeoMx or Mass spec data, and are therefore not included.
+
+Only Supplemental Figure 3 is included in this document. All either supplemental figures were either generated with GraphPad prism or do not contain plots, with the execption of Supplemental Figure 2, which may be found in the file QC_and_normalization.Rmd. 
+
+
 
 
 
@@ -1268,7 +1272,7 @@ Figure6F - GO biological Pathways associated with exo-proteins induced by OVCAR3
 
 
 
-# Read in Files for Volcano Plots
+#### Read in Files for Volcano Plots
 
 ```{r}
 
@@ -1276,27 +1280,27 @@ source_path <- paste0(getwd(), "/analysis/proteomics")
 
 
 
-EV_protein_OVCAR3 <- read_xlsx(path = paste0(source_path, "/differential_protein_expression_EV_proteins.xlsx"), col_types = c("text", "numeric", "numeric", "numeric", "numeric"))
+EV_protein_OVCAR3 <- read_xlsx(path = paste0(source_path, "/PBS.vs.OVCAR3_comparison.xlsx"))
 
 
-EV_protein_FT240 <- read_xlsx(path = paste0(source_path, "/differential_protein_expression_EV_proteins.xlsx"), col_types = c("text", "numeric", "numeric", "numeric", "numeric"), sheet = "PBS vs FT240")
+EV_protein_FT240 <- read_xlsx(path = paste0(source_path, "/PBS.vs.FT240_comparison.xlsx"))
 
 
-EV_protein_OVCAR3 <- EV_protein_OVCAR3 |> dplyr::rename(c(Marker.name = gene_symbol, log_fold = logFC, p_value_t = P.Value, minus_log10.p.value_t = `Log 10 p value`))
+EV_protein_OVCAR3 <- EV_protein_OVCAR3 |> dplyr::rename(c(p_value_t = p_value_ttest, minus_log10.p.value_t = minuslog10.p.value.ttest))
 
-EV_protein_FT240 <- EV_protein_FT240 |> dplyr::rename(c(Marker.name = gene_symbol, log_fold = logFC, p_value_t = P.Value, minus_log10.p.value_t = `Log 10 p value`))
+EV_protein_FT240 <- EV_protein_FT240 |> dplyr::rename(c(p_value_t = p_value_ttest, minus_log10.p.value_t = minuslog10.p.value.ttest))
 
 ```
 
 
-# Generate volcano plot
+### Generate volcano plot
 
 
 ```{r fig.height=8, fig.width=12}
 
-VP_OVCAR3 <- volcano_plot(df = EV_protein_OVCAR3, xmin = -6, xmax = 6, num_genes = 0, title_name = "hFTE EV proteome change following EV insult", upreg = "OVCAR3", downreg = "PBS") |> add_labels(df = EV_protein_OVCAR3, n_genes = 40, lab_size = 6, x_lim_max = 6)
+VP_OVCAR3 <- volcano_plot(df = EV_protein_OVCAR3, xmin = -6, xmax = 6, num_genes = 0, title_name = "hFTE EV proteome change following EV insult", upreg = "OVCAR3", downreg = "PBS", flip_log_fold = T) |> add_labels(df = EV_protein_OVCAR3, n_genes = 40, lab_size = 6, x_lim_max = 6, flip_log_fold = T)
 
-VP_FT240 <- volcano_plot(df = EV_protein_FT240, xmin = -6, xmax = 6, num_genes = 0, title_name = "hFTE EV proteome change following EV insult", upreg = "FT240", downreg = "PBS") |> add_labels(df = EV_protein_FT240, n_genes = 40, lab_size = 6, x_lim_max = 6)
+VP_FT240 <- volcano_plot(df = EV_protein_FT240, xmin = -6, xmax = 6, num_genes = 0, title_name = "hFTE EV proteome change following EV insult", upreg = "FT240", downreg = "PBS", flip_log_fold = T) |> add_labels(df = EV_protein_FT240, n_genes = 40, lab_size = 6, x_lim_max = 6, flip_log_fold = T)
 
 VP_OVCAR3
 
@@ -1305,11 +1309,7 @@ VP_FT240
 ```
 
 
-
-
-
-
-# Read in files for Proteomics Go Plots
+#### Read in files for Proteomics Go Plots
 
 
 ```{r}
@@ -1319,9 +1319,7 @@ PBS_v_OVCAR3_GO_BP <- read.csv(file = paste0(source, "/PBS_v_OVCAR3_GO_BP_OVC_un
 
 ```
 
-
-
-
+### Generate GO plots
 
 
 ```{r fig.width=8, fig.height=8}
@@ -1334,8 +1332,349 @@ plot_GO(data = PBS_v_OVCAR3_GO_BP[PBS_v_OVCAR3_GO_BP$nGenes > 3, ], n_graph = 10
 
 ```
 
+### Figure 7
+
+Figure 7 contains boxplots that were generated using R. 
 
 
+### FUNCT: subset_dataset()
+
+```{r}
+subset_dataset <- function(dataset = NA, subset_by = NA, value_to_select = NA){
+  
+    # check to see if subsetting requested
+  if(is.character(subset_by)){
+    # check to see if a value provided. 
+    if(!is.list(value_to_select)){
+      message("No value provided to subset on.")
+    }
+    else{
+      # in the column subset_by
+      # select all of the rows that match "value_to_select"
+      dataset = dataset[, pData(dataset)[, subset_by] %in% value_to_select[[1]]] 
+    }
+  }
+  
+  return(dataset)
+}
+
+
+
+
+multi_subset_test <- function(dataset = NA, subset_pairs = NA){
+  if(is.list(subset_pairs)){
+    for(name in names(subset_pairs)){
+      dataset <- subset_dataset(dataset = dataset, subset_by = name, value_to_select = subset_pairs[name])
+    }
+  }
+  else{
+    message("Subset_pairs must be a list.")
+  }
+  return(dataset)
+  
+  
+}
+```
+
+### FUNCT: make_boxplot()
+
+
+```{r}
+
+
+make_boxplot <- function(gene = "FOXJ1", point_size = 2, dataset = NA, subset_pairs = NA, x_lab = "EV Treatment", title = "", title_append = "", 
+                         add_sig = FALSE, sig_comparisons = c()){
+  
+  
+  # check to see if subsetting requested
+  if(is.list(subset_pairs)){
+    for(name in names(subset_pairs)){
+      dataset <- subset_dataset(dataset = dataset, subset_by = name, value_to_select = subset_pairs[name])
+    }
+  }
+  else{
+    message("Subset_pairs must be a list.")
+  }
+  
+  if(nchar(title) == 0){
+    title = TeX(paste0("\\textit{", gene, "} ", title_append))
+  }
+  
+
+  # %in% checks to see if a name is in a list. 
+  # I define not in (%ni%) to do the opposite (check if NOT in the list)
+  `%ni%` <- Negate(`%in%`)
+  gene_not_found <- c()
+  if(gene %ni% rownames(assayDataElement(dataset, elt = "q_norm"))){
+    return(paste0(gene, " not in list"))
+  }
+    vector <- as.vector(assayDataElement(dataset[gene, ], elt = "q_norm"))
+    plot <- ggplot(
+      pData(dataset), 
+      aes(x = Treatment,
+          y = vector,
+          fill = Treatment
+          )
+      )+
+      geom_boxplot(outlier.shape = NA) +
+      labs(title = title, 
+           y = TeX(paste0("\\textit{", gene, "} Expression")),
+           x = x_lab)+
+      #facet_wrap(~Patient)+
+  
+      #geom_jitter(size = point_size, width = 0.25, stroke = 1.3, aes(shape = Patient))+
+      
+      geom_jitter(size = point_size, width = 0.25, stroke = 1.3)+
+  
+      #scale_shape_manual(values = c(3, 4, 13, 21, 22, 23, 24))+
+  
+      theme_bw()+
+      
+      theme(legend.position="none")+
+      
+      theme(
+        axis.title=element_text(size=20), 
+        axis.text=element_text(size=15), 
+        plot.title=element_text(size=17))
+          
+    
+    if(add_sig){
+      plot <- plot |> add_sig(sig_comparisons)
+    }
+  
+      # scale_x_discrete(labels=c("Fim","Inf","Amp", "Isth"))+
+      # scale_fill_manual(values= c("#7CAE00", "#00C1C6", "#F8766D", "#C77CFF"))+
+  
+      # theme(axis.text.x = element_text(size = 15),
+      #       axis.text.y = element_text(size = 12),
+      #       axis.title.y = element_text(size = 15),
+      #       axis.title.x = element_text(size = 15),
+      #       legend.text = element_text(size =12),
+      #       legend.title = element_text(size = 12),
+      #       strip.text = element_text(size = 15))
+    
+
+    return(plot)
+}
+```
+
+### FUNCT: add_sig()
+
+```{r}
+my_comparisons = list(c("PBS", "OVCAR3"))
+
+
+add_sig <- function(plot, comparisons_wanted = my_comparisons, pnt = 6){
+  plot <- plot + 
+    stat_compare_means(
+      comparisons = comparisons_wanted, 
+      method = "t.test", 
+      bracket.nudge.y = -0.5,
+      size = pnt)+
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.10)))
+  return (plot)
+}
+```
+
+
+
+```{r fig.height=5, fig.width=3.7}
+
+# Day 1 Boxplots
+
+gene_list <- c("CCL2", "FLNA", "VCAM1", "TPI1")
+
+day1_sec <- list(Days = c("1-Day"), Segment = c("Secretory"), Treatment = c("OVCAR3", "PBS"))
+
+
+lapply(gene_list, make_boxplot, dataset = EV_q_norm, subset_pairs = day1_sec, title_append = "Day1, Secretory", add_sig = TRUE, sig_comparisons = my_comparisons)
+
+
+# Day 14 Boxplots
+
+gene_list <- c("TXNIP", "VCAM1")
+
+day14_sec <- list(Days = c("14-Day"), Segment = c("Secretory"), Treatment = c("OVCAR3", "PBS"))
+
+
+lapply(gene_list, make_boxplot, dataset = EV_q_norm, subset_pairs = day14_sec, title_append = "Day14, Secretory", add_sig = TRUE, sig_comparisons = my_comparisons)
+```
+
+
+### Supplemental Figure 3
+
+
+
+```{r}
+
+dataEV_D14 <- EV_q_norm[, pData(EV_q_norm)$Days == "14-Day"]
+
+dataEV_D01 <- EV_q_norm[, pData(EV_q_norm)$Days == "1-Day"]
+
+
+```
+
+
+
+```{r}
+
+t.test_logfold <- function(obj, variable_type = "segment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm"){
+  
+  # Get locations of all in the "up" group for that variable
+  g_up <- which(pData(obj)[variable_type] == upreg_group)
+  # get locations of all in the "down" group for that variable
+  g_down <- which(pData(obj)[variable_type] == downreg_group)
+  
+  # Retrieve normalized expression data from the GeoMxDataSet Object
+  obj <-  assayDataElement(object = obj, elt = elt_name)
+  
+  # For each gene (every row), perform a T-test comparing the columns in the 
+  #up_group vs down_group
+  
+  t.test <- apply(obj, 1, 
+              function(x) t.test(
+                x[g_up],
+                x[g_down]))
+  
+  #calculate the log_2 Fold Change of up_group compared to down for each row
+  
+  log_fold <- apply(obj, 1,
+                    function(x)  log2(mean(x[g_up])/mean(x[g_down]))
+                    )
+  
+  # convert to data frame
+  log_fold <- as.data.frame(log_fold)
+  
+  # retrieve the p.values from the t.test object and store to a datafram
+
+  df <- do.call(rbind, lapply(t.test, function(x) c(
+    p_value = unname(x$p.value))))
+  
+  # create an adjusted p_value using the Bonferooni correction 
+
+  df <- transform(df, padj = p.adjust(p_value, method = "BH"))
+  
+  # merge the log_fold values with the p_values
+  
+  output <- merge(df, log_fold, by = 0)
+  
+  
+  # rename the column rownames to Gene
+  
+  output <- output |> dplyr::rename(Gene = Row.names)
+  #  Add the -log10 of the pvalue for plotting 
+  output <- output |> mutate(minuslog10_Pvalue = -log10(p_value))
+  
+  return(output)
+  
+}
+```
+
+
+
+#### 1. Volcano Plot Ciliated vs Secretory
+
+```{r}
+
+cil_v_sec_t.test_D01 <- t.test_logfold(dataEV_D01, variable_type = "segment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm")
+
+cil_v_sec_t.test_D01 <- cil_v_sec_t.test_D01 |> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
+
+
+
+volcano_plot(df = cil_v_sec_t.test_D01, title_name = "Ciliated vs Secretory Comparison (Day 1)", highlight_genes = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
+
+
+
+cil_v_sec_t.test_D14 <- t.test_logfold(dataEV_D14, variable_type = "segment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm")
+
+cil_v_sec_t.test_D14 <- cil_v_sec_t.test_D14 |> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
+
+
+volcano_plot(df = cil_v_sec_t.test_D14, title_name = "Ciliated vs Secretory Comparison (Day14)", highlight_genes = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
+
+
+```
+
+
+
+### Ciliated v Secretory Marker Confirmation Boxplots
+
+
+```{r}
+
+Cil_v_Sec_Boxplot_Points <- function(gene = "FOXJ1", point_size = 3, dataset = EV_q_norm){
+    set.seed(42)
+    vector <- as.vector(assayDataElement(dataset[gene, ], elt = "q_norm"))
+    plot <- ggplot(pData(dataset),
+      aes(x = segment,
+          y = vector,
+          fill = segment
+          )
+      )+
+      geom_boxplot(outlier.shape = NA)+
+      labs(title = TeX(paste0("\\textit{", gene, "}")),
+           y = TeX(paste0("\\textit{", gene, "} Expression")),
+           x = "Cell Type")+
+
+      geom_jitter(size = point_size, width = 0.25, stroke = 0.3)+
+
+      # geom_jitter(size = point_size, width = 0.25, stroke = 1.3,
+      #             aes(shape = patient))+
+
+      # scale_shape_manual(values = c(21, 22, 23))+
+      scale_fill_manual(values =c("green", "red"))+
+
+
+
+      theme_bw()+
+      #
+      # theme(axis.text.x = element_text(size = 15),
+      #       axis.text.y = element_text(size = 12),
+      #       axis.title.y = element_text(size = 15),
+      #       axis.title.x = element_text(size = 15),
+      #       legend.text = element_text(size =12),
+      #       legend.title = element_text(size = 12),
+      #       strip.text = element_text(size = 15))
+
+    
+    stat_compare_means(
+      comparisons = list(c("Ciliated", "Secretory")),
+      method = "t.test", 
+      bracket.nudge.y = -0.5,
+      size = point_size+5)+
+      
+      scale_y_continuous(expand = expansion(mult = c(0.05, 0.10)))
+    
+    
+  return(plot)
+
+}
+
+```
+
+
+
+
+```{r}
+
+
+
+A <- Cil_v_Sec_Boxplot_Points(gene = "FOXJ1", dataset = dataEV_D01)
+
+B <- Cil_v_Sec_Boxplot_Points(gene = "PAX8", dataset = dataEV_D01)
+
+
+C <- Cil_v_Sec_Boxplot_Points(gene = "FOXJ1", dataset = dataEV_D14)
+
+D <- Cil_v_Sec_Boxplot_Points(gene = "PAX8", dataset = dataEV_D14)
+
+
+A 
+B
+C
+D
+```
 
 ```{r}
 
