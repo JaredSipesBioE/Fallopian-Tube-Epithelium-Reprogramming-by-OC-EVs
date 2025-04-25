@@ -1,0 +1,8 @@
+"Enrichment FDR","nGenes","Pathway Genes","Fold Enrichment","Pathway","URL","Genes"
+0.0480595437300294,2,5,86.0384615384615,"GO:0014905 myoblast fusion involved in skeletal muscle regeneration "," http://amigo.geneontology.org/amigo/term/GO:0014905"," CD9  CD81"
+0.0480595437300294,2,9,86.0384615384615,"GO:0014908 myotube differentiation involved in skeletal muscle regeneration "," http://amigo.geneontology.org/amigo/term/GO:0014908"," CD9  CD81"
+0.0480595437300294,3,34,25.8115384615385,"GO:0019674 NAD metabolic process "," http://amigo.geneontology.org/amigo/term/GO:0019674"," PKM  TPI1  LDHB"
+0.0480595437300294,7,715,7.25625579240037,"GO:0051668 localization within membrane "," http://amigo.geneontology.org/amigo/term/GO:0051668"," ITGA3  CD81  FLNA  CD24  LAMA5  ACTB  CMTM6"
+0.0480595437300294,6,626,6.97609147609148,"GO:0072657 protein localization to membrane "," http://amigo.geneontology.org/amigo/term/GO:0072657"," ITGA3  CD81  FLNA  CD24  LAMA5  ACTB"
+0.0480595437300294,5,303,9.35200668896321,"GO:0072659 protein localization to plasma membrane "," http://amigo.geneontology.org/amigo/term/GO:0072659"," ITGA3  CD81  FLNA  LAMA5  ACTB"
+0.0600473889042222,5,357,8.43514328808446,"GO:1990778 protein localization to cell periphery "," http://amigo.geneontology.org/amigo/term/GO:1990778"," ITGA3  CD81  FLNA  LAMA5  ACTB"
