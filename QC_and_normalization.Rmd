@@ -995,6 +995,17 @@ EV_q_norm <- quantileNorm(target_dataEV, toElt = "q_norm")
 ```
 
 
+```{r}
+# to save the file 
+
+save(EV_q_norm, file = "EV_q_norm.Rdata")
+
+
+# print_TargetCountMatrix(matrix = assayDataElement(quantile_dataEV, "q_norm"),
+#                         file_path = "C:/Users/j789s948/Downloads/Exprs_quantile_norm_test.xlsx")
+
+```
+
 ##5.1 Analysis of Normalization
 
 
@@ -1177,4 +1188,11 @@ The output for Supplemental Figure 2 is generated below
 
 Our collaborators used this dataset to perform gene expression analysis. The resulting differentially expressed genes are located in the analysis folder. 
 
+
+
+```{r}
+
+sessionInfo()
+
+```
 
