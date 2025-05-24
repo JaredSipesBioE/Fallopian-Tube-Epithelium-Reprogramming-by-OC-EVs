@@ -1,0 +1,8 @@
+Enrichment FDR,nGenes,Pathway Genes,Fold Enrichment,Pathway,URL,Genes
+0.023062156,27,4673,1.698095338,GO:0005576 extracellular region , http://amigo.geneontology.org/amigo/term/GO:0005576, ICAM1  ITGB8  APOC3  CREB5  HSPA6  CALML3  KRT5  KRT14  HSPA1A  C4B  C4B_2  CXCL2  FGF8  CCL2  CCL20  CXCL1  CXCL8  IFNL2  IFNA1  IFNA13  CCL4  CCL18  CCL15  CSF3R  IL11RA  DIPK2B  STK11IP
+0.023062156,2,5,45.97435897,GO:0044217 other organism part , http://amigo.geneontology.org/amigo/term/GO:0044217, C4B  C4B_2
+0.023062156,2,5,45.97435897,GO:0106139 symbiont cell surface , http://amigo.geneontology.org/amigo/term/GO:0106139, C4B  C4B_2
+0.044326548,23,3577,1.724975948,GO:0005615 extracellular space , http://amigo.geneontology.org/amigo/term/GO:0005615, ICAM1  ITGB8  APOC3  CREB5  HSPA6  CALML3  KRT5  KRT14  HSPA1A  C4B  C4B_2  CXCL2  FGF8  CCL2  CCL20  CXCL1  CXCL8  IFNL2  IFNA1  IFNA13  CCL4  CCL18  CCL15
+0.076789014,2,46,22.98717949,GO:0008180 COP9 signalosome , http://amigo.geneontology.org/amigo/term/GO:0008180, HSPA6  HSPA1A
+0.076789014,4,141,6.341290893,GO:0072562 blood microparticle , http://amigo.geneontology.org/amigo/term/GO:0072562, HSPA6  HSPA1A  C4B  C4B_2
+0.193690773,2,144,13.13553114,GO:0045095 keratin filament , http://amigo.geneontology.org/amigo/term/GO:0045095, KRT5  KRT14
