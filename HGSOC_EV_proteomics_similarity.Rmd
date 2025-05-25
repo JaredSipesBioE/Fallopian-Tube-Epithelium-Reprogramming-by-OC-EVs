@@ -1,0 +1,247 @@
+---
+title: "HGSOC_EV_proteomics_similarity"
+author: "Jared Sipes"
+date: "2025-05-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summmary
+
+
+The purpose of this dataset is to help understand the similarities betwene the ovarian cancer EV proteins identified in the following dataset:
+
+Trinidad, C.V., Pathak, H.B., Cheng, S. et al. Lineage specific extracellular vesicle-associated protein biomarkers for the early detection of high grade serous ovarian cancer. Sci Rep 13, 18341 (2023). https://doi.org/10.1038/s41598-023-44050-5
+
+
+I am using processed data from a bioinformatician that quantifies protein intensity. 
+
+# Packages Used
+
+```{r}
+# read in .xlsx
+
+library(readxl)
+library(tidyverse)
+
+
+# For Jacard Index
+
+library(pheatmap)
+
+
+```
+
+
+# Load the dataset
+
+
+```{r}
+
+# read in only the Serous Ovarian Cancer Cases
+
+# note that all proteins after row 4720 are bovine contaminating proteins (picked up from the FBS).
+# set nmax = 4720 to exclude these
+
+ovc_EV_protein <- read_xlsx(path = paste0(getwd(), "/HGSOC_EV_proteomics/Godwin_LFQ_all_81_Human_and_FBS_Proteins.xlsx"), sheet = "Serous Ovarian Cancer", n_max = 4720)
+
+
+```
+
+
+Some of the EV lines contain replicate data. For example: CL_OV_OVCAR2_1, CL_OV_OVCAR2_2, and CL_OV_OVCAR2_3 are biological replicates.
+
+We want to average these three to get only one CL_OV_OVCAR2 value. 
+
+```{r}
+
+
+
+
+list_cell_lines <- c("OVCAR2", "OVCAR3", "OVCAR4", "OVCAR8", "PEO1", "PEO4")
+
+# use mutate to generate the new column
+
+# Notes:
+# := is an assignment argument like "=", but unlike equals allows name on the left to be computer
+# !! - the "bang-bang" operator is "unquoting" this tells R to evaluate the variable and use its value
+
+ovc_EV_protein_avg <- ovc_EV_protein
+
+for(cell_line in list_cell_lines){
+  # create the new column name
+  new_col <- paste0("CL_OV_", cell_line)
+  
+  # match all col names containing cell line, and take rowmean 
+  # .keep = "unused" ensures that the cols used to create the average are removed
+  ovc_EV_protein_avg <- ovc_EV_protein_avg |> mutate(!!new_col:= rowMeans(across(matches(cell_line)), na.rm = T), .keep = "unused") 
+  
+}
+
+
+```
+
+```{r}
+
+# test <- ovc_EV_protein_avg %>%
+#   filter(!is.na(TE_OV_600071)) %>%
+#   pull(Accession)  # or select(gene_id)
+# 
+# 
+# test2 <- df[df$name == "TE_OV_600071", ]$list_proteins
+
+
+```
+
+
+```{r}
+
+# subset df to get only items of interest
+
+EV_data <- select(ovc_EV_protein_avg, matches("_OV"))
+
+name_EV <- names(EV_data)
+
+
+
+df <- tibble(name = name_EV, num_proteins= numeric(length(name_EV)), list_proteins = list(length(name_EV)))
+
+for(name in name_EV){
+  df[df$name == name, ]$num_proteins <- length(which(EV_data[name] >0))
+  df[df$name == name, ]$list_proteins <-  list(ovc_EV_protein_avg$Accession[which(EV_data[name] >0)])
+  
+}
+
+
+rownames(df) <- df$name
+
+```
+
+
+
+
+
+Ideas for displaying:
+
+Venn won't work well - there are in fact 6-venn diagrams, for example here: https://www.interactivenn.net/index.html, but good luck reading one! 
+
+
+
+
+Pairwise Jaccard Similarity Heatmap
+
+Upset plot
+
+# Jacard Similarity Plot
+
+
+```{r}
+
+
+protein_lists <- df$list_proteins
+
+names(protein_lists) <- df$name
+
+# Function to compute Jaccard index
+jaccard_index <- function(x, y) {
+  length(intersect(x, y)) / length(union(x, y))
+}
+
+# Compute pairwise Jaccard matrix
+samples <- names(protein_lists)
+jaccard_matrix <- outer(samples, samples, Vectorize(function(a, b) jaccard_index(protein_lists[[a]], protein_lists[[b]])))
+rownames(jaccard_matrix) <- colnames(jaccard_matrix) <- samples
+
+# Plot heatmap
+library(pheatmap)
+pheatmap(jaccard_matrix, display_numbers = TRUE, main = "Jaccard Similarity Between Samples")
+
+
+```
+
+
+
+
+
+
+
+Bar plot: percent shared by all, percent shared by 5, by 4, 3, 2, 1
+
+
+```{r}
+
+all_samples <- df
+CL_samples <- df[grepl("CL", df$name), ]
+
+add_hits <- function(df){
+    df <- df
+    protein_hits <- list()
+  
+  # loop from 1: 15
+    
+  for(i in 1:length(df$list_proteins)){
+      # get the list of proteins
+      protein_list <- df$list_proteins[[i]]
+      # creat a new empty list of hits
+      hits <- c()
+    for(protein in protein_list){
+      # calculate number of hits
+      num_hits <- sapply(df$list_proteins, function(x) protein %in% x) |> sum()
+      #append to list
+      hits <- c(hits, num_hits)
+    }
+    protein_hits[[i]] <- hits
+  }
+  
+   df$protein_hits <- protein_hits
+   return(df)
+}
+
+all_samples <- add_hits(all_samples)
+CL_samples <- add_hits(CL_samples)
+
+```
+
+
+
+```{r}
+
+
+# takes the df and creates a new df with a column for number and source (cell line or tissue explant)
+
+collapse_df <- function(df){
+  all_data <- data.frame()
+  for(name in df$name){
+    list <- as.vector(df[df$name == name, ]$protein_hits[[1]])
+    df_new <- data.frame(number = list, source = name)
+    all_data <- bind_rows(all_data, df_new)
+  }
+  return(all_data)
+}
+
+
+all_data <- collapse_df(all_samples)
+CL_data <- collapse_df(CL_samples)
+
+
+
+
+#only_CL <- all_data[grepl("CL", all_data$source), ]
+
+# Plot
+ggplot(CL_data, aes(x=source, fill = factor(number))) +
+  geom_bar(position = "stack") +
+  labs(title = "Frequently occuring proteins in HGSOC-EVs",
+       x = "Sample Origin",
+       y = "Number of Proteins",
+       fill = "Protein found in \n n samples") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle=90, vjust=.5, hjust=1))
+  
+
+```
+
+
