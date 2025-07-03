@@ -15,13 +15,57 @@ Contains code used to generate main figures.
 
 Note that Figures 1 and 2 do not contain any figures generated using the GeoMx or Mass spec data, and are therefore not included.
 
-Only Supplemental Figure 3 is included in this document. All either supplemental figures were either generated with GraphPad prism or do not contain plots, with the execption of Supplemental Figure 2, which may be found in the file QC_and_normalization.Rmd. 
+Supplemental_Figures:
+
+Supplemental Figures 3, 10, and 12-16 are found in this document. 
+Supplemental Figure 1 uses data from another study, and may be found in HGSOC_EV_proteomics.
+Supplemental Figure 2 may be found in QC_and_normalization. 
+Supplemental Figure 11 uses data from another study, and may be found in HGSOC_precursor_comparison.Rmd
+
+
+All either supplemental figures were either generated with GraphPad prism or do not contain plots, with the exception of Supplemental Figure 2, which may be found in the file QC_and_normalization.Rmd. 
 
 
 
+## 1. Packages Needed
 
 
-## Packages Needed
+```{r}
+# #
+# if (!require("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# # 
+# # # The following initializes most up to date version of Bioc
+# BiocManager::install()
+# 
+# BiocManager::install("NanoStringNCTools")
+# BiocManager::install("GeomxTools")
+# BiocManager::install("GeoMxWorkflows")
+
+# Note:
+# Needed to install package lme4, numderiv
+library(NanoStringNCTools)
+library(GeomxTools)
+library(GeoMxWorkflows)
+
+if(packageVersion("GeomxTools") < "2.1" & 
+   packageVersion("GeoMxWorkflows") >= "1.0.1"){
+    stop("GeomxTools and Workflow versions do not match. Please use the same version. 
+    This workflow is meant to be used with most current version of packages. 
+    If you are using an older version of Bioconductor please reinstall GeoMxWorkflows and use vignette(GeoMxWorkflows) instead")
+}
+
+if(packageVersion("GeomxTools") > "2.1" & 
+   packageVersion("GeoMxWorkflows") <= "1.0.1"){
+    stop("GeomxTools and Workflow versions do not match. 
+         Please use the same version, see install instructions above.")
+    
+    # to remove current package version
+        # remove.packages("GeomxTools")
+        # remove.packages("GeoMxWorkflows")
+    # see install instructions above 
+}
+```
 
 ```{r}
 
@@ -71,7 +115,11 @@ library(circlize)
 
 ```
 
-## Load GeoMx Object
+
+
+## 2. Load Files
+
+#### 2.1  Load GeoMx Object
 
 The GeoMx Object was created using the QC_and_normalization.Rmd file. 
 It is not separately uploaded in the Github repository due to size and must be generated using the QC_and_normalization.Rmd file. 
@@ -94,11 +142,214 @@ pData(EV_q_norm) <- pData(EV_q_norm) |> mutate(Patient = recode(Tissue,
                                                  "UH000025" = "pt9",
                                                  "5929-606939" = "pt10",
                                                  "461-27444" = "pt11",
-                                                 "5929-606856" = "pt12"))
+                                                 "5929-606856" = "pt12",
+                                                 "UH000028" = "pt13",
+                                                 "5929-608036" = "pt14",
+                                                 "021355" = "pt15",
+                                                 "5929-607836" = "pt16",
+                                                 "UH00022" = "pt17",
+                                                 "461-27355" = "pt18"
+                                                 ))
+
 ```
 
 
-## Load GO Files Unique DEGs
+## 2. New T-test
+
+
+```{r}
+
+
+t.test_logfold <- function(obj, variable_type = "Treatment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm"){
+  
+  # Get locations of all in the "up" group for that variable
+  g_up <- which(pData(obj)[variable_type] == upreg_group)
+  # get locations of all in the "down" group for that variable
+  g_down <- which(pData(obj)[variable_type] == downreg_group)
+  
+  # Retrieve normalized expression data from the GeoMxDataSet Object
+  obj <-  assayDataElement(object = obj, elt = elt_name)
+  
+  # For each gene (every row), perform a T-test comparing the columns in the 
+  #up_group vs down_group
+  
+  t.test <- apply(obj, 1, 
+              function(x) t.test(
+                x[g_up],
+                x[g_down]))
+  
+  #calculate the log_2 Fold Change of up_group compared to down for each row
+  
+  log_fold <- apply(obj, 1,
+                    function(x)  log2(mean(x[g_up])/mean(x[g_down]))
+                    )
+  
+  # convert to data frame
+  log_fold <- as.data.frame(log_fold)
+  
+  # retrieve the p.values from the t.test object and store to a datafram
+
+  df <- do.call(rbind, lapply(t.test, function(x) c(
+    p_value = unname(x$p.value))))
+  
+  # create an adjusted p_value using the Bonferooni correction 
+
+  df <- transform(df, padj = p.adjust(p_value, method = "BH"))
+  
+  # merge the log_fold values with the p_values
+  
+  output <- merge(df, log_fold, by = 0)
+  
+  
+  # rename the column rownames to Gene
+  
+  output <- output |> dplyr::rename(Marker.name = Row.names, p_value_t = p_value)
+  #  Add the -log10 of the pvalue for plotting 
+  output <- output |> mutate(minus_log10.p.value_t = -log10(p_value_t))
+  
+  return(output)
+  
+}
+
+
+```
+
+
+# Separate into Day1 and Day14 Cil and Sec
+
+```{r}
+dataEV_D14 <- EV_q_norm[, pData(EV_q_norm)$Days == "14-Day"]
+
+dataEV_D14_sec <- dataEV_D14[, pData(dataEV_D14)$segment == "Secretory"]
+dataEV_D14_cil <- dataEV_D14[, pData(dataEV_D14)$segment == "Ciliated"]
+
+dataEV_D01 <- EV_q_norm[, pData(EV_q_norm)$Days == "1-Day"]
+
+dataEV_D01_sec <- dataEV_D01[, pData(dataEV_D01)$segment == "Secretory"]
+dataEV_D01_cil <- dataEV_D01[, pData(dataEV_D01)$segment == "Ciliated"]
+
+```
+
+
+```{r}
+
+library(writexl)
+
+# function to save the volcano plot comparisons to excel file. 
+
+save_vp_comparisons <- function(name = "name", PBS.vs.FT240 = NA, FT240.vs.OVCAR3 = NA, PBS.vs.OVCAR3 = NA){
+  
+    # Create List of data frames
+    # format is name = df
+    dfs <- list(PBS.vs.FT240 = PBS.vs.FT240, FT240.vs.OVCAR3 = FT240.vs.OVCAR3, PBS.vs.OVCAR3 = PBS.vs.OVCAR3)
+    
+    # Export
+     write_xlsx(dfs, path = paste0(name, ".xlsx"))
+     
+     print(paste0("File saved to ", getwd(), "/", name, ".xlsx"))
+}
+
+# Secretory 1 Day
+
+
+sec_D1_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D01_sec, variable_type = "Treatment", upreg = "FT240", downreg = "PBS")
+sec_D1_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
+sec_D1_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
+
+save_vp_comparisons(name = "1Day_Secretory_Comparison_ttest", PBS.vs.FT240 = sec_D1_PBS.vs.FT240, FT240.vs.OVCAR3 = sec_D1_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = sec_D1_PBS.vs.OVCAR3)
+
+
+# Ciliated 1 Day
+
+cil_D1_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D01_cil, variable_type = "Treatment", upreg = "FT240", downreg = "PBS")
+cil_D1_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
+cil_D1_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
+
+save_vp_comparisons(name = "1Day_Ciliated_Comparison_ttest", PBS.vs.FT240 = cil_D1_PBS.vs.FT240, FT240.vs.OVCAR3 = cil_D1_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = cil_D1_PBS.vs.OVCAR3)
+
+
+
+# Secretory Day 14
+
+sec_D14_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D14_sec, variable_type = "Treatment", upreg = "FT240", downreg = "PBS")
+sec_D14_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
+sec_D14_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
+
+save_vp_comparisons(name = "14Day_Secretory_Comparison_ttest", PBS.vs.FT240 = sec_D14_PBS.vs.FT240, FT240.vs.OVCAR3 = sec_D14_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = sec_D14_PBS.vs.OVCAR3)
+
+
+
+# Ciliated Day 14
+
+cil_D14_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D14_cil, variable_type = "Treatment", upreg = "FT240", downreg = "PBS")
+cil_D14_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
+cil_D14_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
+
+save_vp_comparisons(name = "14Day_Ciliated_Comparison_ttest", PBS.vs.FT240 = cil_D14_PBS.vs.FT240, FT240.vs.OVCAR3 = cil_D14_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = cil_D14_PBS.vs.OVCAR3)
+
+
+
+
+```
+
+```{r}
+
+
+get_go_genes <- function(df = sec_D1_PBS.vs.FT240, p_val_cutoff = 0.05, logfc_cutoff = 0.5){
+  if(logfc_cutoff > 0){
+    gene_list<- df[df$p_value_t < p_val_cutoff & df$log_fold > logfc_cutoff, ]$Marker.name
+  }
+  if(logfc_cutoff < 0){
+    gene_list<- df[df$p_value_t < p_val_cutoff & df$log_fold < logfc_cutoff, ]$Marker.name
+    
+  }
+  return(gene_list)
+}
+
+
+
+
+```
+
+
+```{r}
+
+
+get_genes <- function(df_FT240 = sec_D1_PBS.vs.FT240, df_OVCAR3 = sec_D1_PBS.vs.OVCAR3){
+  genes <- list()
+  
+  genes$FT240_up <- get_go_genes(df = df_FT240)
+  genes$OVCAR3_up <- get_go_genes(df = df_OVCAR3)
+  genes$FT240_down <- get_go_genes(df = df_FT240, logfc_cutoff = -0.5)
+  genes$OVCAR3_down <- get_go_genes(df = df_OVCAR3, logfc_cutoff = -0.5)
+  genes$OVCAR3_unique_up <- setdiff(genes$OVCAR3_up,  genes$FT240_up)
+  genes$OVCAR3_unique_down <- setdiff(genes$OVCAR3_down,  genes$FT240_down)
+  
+  return(genes)
+}
+
+# Sec D1
+
+D1_sec <- get_genes(df_FT240 = sec_D1_PBS.vs.FT240, df_OVCAR3 = sec_D1_PBS.vs.OVCAR3)
+
+# Cil D1
+
+D1_cil <- get_genes(df_FT240 = cil_D1_PBS.vs.FT240, df_OVCAR3 = cil_D1_PBS.vs.OVCAR3)
+
+# Sec_D14
+
+D14_sec <- get_genes(df_FT240 = sec_D14_PBS.vs.FT240, df_OVCAR3 = sec_D14_PBS.vs.OVCAR3)
+
+# Cil_D14
+
+D14_cil <- get_genes(df_FT240 = cil_D14_PBS.vs.FT240, df_OVCAR3 = cil_D14_PBS.vs.OVCAR3)
+
+
+```
+
+
+
+#### 2.2  Load GO Files Unique DEGs
 
 These GO analysis files are created using transcripts that were uniquely upregulated ONLY by OVCAR3 EVs, but NOT by FT240 EVs. 
 
@@ -107,66 +358,84 @@ See methods for more details.
 
 ```{r}
 
-# source of all related .csv files
-source <- paste0(getwd(), "/GO_analysis/unique_OVCAR3_transcripts_only")
+# # source of all related .csv files
+# source <- paste0(getwd(), "/GO_analysis/unique_OVCAR3_transcripts_only")
+# 
+# # Read in the .csv files to be used. 
+# 
+# BP_OVC_sec_new <- read.csv(file = paste0(source, "/sec_GO_BP_OVCAR_upreg.csv"))
+# 
+# CC_PBS_sec_new <- read.csv(file = paste0(source, "/sec_GO_CC_OVCAR_downreg.csv"))
+# 
+# BP_OVC_cil_new <- read.csv(file = paste0(source, "/cil_GO_BP_OVCAR_upreg.csv"))
+# 
+# MF_ovc_cil_new <- read.csv(file = paste0(source, "/cil_GO_MF_OVCAR_upreg.csv"))
 
-# Read in the .csv files to be used. 
 
-BP_OVC_sec_new <- read.csv(file = paste0(source, "/sec_GO_BP_OVCAR_upreg.csv"))
+#####---CORRECTED GO ANALYSIS---#####
 
-CC_PBS_sec_new <- read.csv(file = paste0(source, "/sec_GO_CC_OVCAR_downreg.csv"))
 
-BP_OVC_cil_new <- read.csv(file = paste0(source, "/cil_GO_BP_OVCAR_upreg.csv"))
+# source of all related .xlsx files
+source <- paste0(getwd(), "/corrected_GO_analysis/")
 
-MF_ovc_cil_new <- read.csv(file = paste0(source, "/cil_GO_MF_OVCAR_upreg.csv"))
+# Read in the .xlsx files to be used.
+
+BP_OVC_sec_new <- read_xlsx(path = paste0(source, "/sec_upreg_OVCAR3_unique.xlsx"), sheet = "GO_BP") |> dplyr::rename(Fold.Enrichment = "Fold Enrichment", Enrichment.FDR = "Enrichment FDR")
+
+CC_PBS_sec_new <- read_xlsx(path = paste0(source, "/sec_downreg_OVCAR3_unique.xlsx"), sheet = "GO_CC") |>  dplyr::rename(Fold.Enrichment = "Fold Enrichment", Enrichment.FDR = "Enrichment FDR")
+
+BP_OVC_cil_new <- read_xlsx(path = paste0(source, "/cil_upreg_OVCAR3_unique.xlsx"), sheet = "GO_BP") |>  dplyr::rename(Fold.Enrichment = "Fold Enrichment", Enrichment.FDR = "Enrichment FDR")
+
+MF_ovc_cil_new <- read_xlsx(path = paste0(source, "/cil_upreg_OVCAR3_unique.xlsx"), sheet = "GO_MF") |>  dplyr::rename(Fold.Enrichment = "Fold Enrichment", Enrichment.FDR = "Enrichment FDR")
+
 
 
 ```
 
-# Load Analysis Files
+#### 2.3 Load Analysis Files
 
 ```{r}
-
-cil_v_sec_D1 <- read_xlsx(path = paste0(getwd(), "/analysis/1Day_CILIATED.vs.SECRETORY_segment.comparison_ttest_wilcox.xlsx"), sheet = "All.marker_Cil.vs.Sec") 
-
-cil_v_sec_D14 <- read_xlsx(path = paste0(getwd(), "/analysis/14Day_CILIATED.vs.SECRETORY_segment.comparison_ttest_wilcox.xlsx"), sheet = "All.marker_Cil.vs.Sec") 
-
-
-# Secretory 1 Day
-
-sec_d1_path <- paste0(getwd(), "/analysis/1Day_Secretory_Trt.comparison_ttest_wilcox.xlsx")
-
-sec_D1_PBS.vs.FT240 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.FT240") 
-sec_D1_FT240.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "FT240.vs.OVCAR3") 
-sec_D1_PBS.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.OVCAR3") 
-
-
-# Ciliated 1 Day
-
-cil_d1_path <- paste0(getwd(), "/analysis/1Day_Ciliated_Trt.comparison_ttest_wilcox.xlsx")
-
-cil_D1_PBS.vs.FT240 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.FT240") 
-cil_D1_FT240.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "FT240.vs.OVCAR3") 
-cil_D1_PBS.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.OVCAR3") 
-
-
-#secretory day 14
-
-sec_d14_path <- paste0(getwd(), "/analysis/14Day_Secretory_Trt.comparison_ttest_wilcox.xlsx")
-
-sec_D14_PBS.vs.FT240 <- read_xlsx(path = sec_d14_path, sheet = "PBS.vs.FT240") 
-sec_D14_FT240.vs.OVCAR3 <- read_xlsx(path = sec_d14_path, sheet = "FT240.vs.OVCAR3") 
-sec_D14_PBS.vs.OVCAR3 <- read_xlsx(path = sec_d14_path, sheet = "PBS.vs.OVCAR3") 
-
-
-
-# Ciliated Day 14
-
-cil_d14_path <- paste0(getwd(), "/analysis/14Day_Ciliated_Trt.comparison_ttest_wilcox.xlsx")
-
-cil_D14_PBS.vs.FT240 <- read_xlsx(path = cil_d14_path, sheet = "PBS.vs.FT240")
-cil_D14_FT240.vs.OVCAR3 <- read_xlsx(path = cil_d14_path, sheet = "FT240.vs.OVCAR3") 
-cil_D14_PBS.vs.OVCAR3 <- read_xlsx(path = cil_d14_path, sheet = "PBS.vs.OVCAR3") 
+# 
+# cil_v_sec_D1 <- read_xlsx(path = paste0(getwd(), "/analysis/1Day_CILIATED.vs.SECRETORY_segment.comparison_ttest_wilcox.xlsx"), sheet = "All.marker_Cil.vs.Sec") 
+# 
+# cil_v_sec_D14 <- read_xlsx(path = paste0(getwd(), "/analysis/14Day_CILIATED.vs.SECRETORY_segment.comparison_ttest_wilcox.xlsx"), sheet = "All.marker_Cil.vs.Sec") 
+# 
+# 
+# # Secretory 1 Day
+# 
+# sec_d1_path <- paste0(getwd(), "/analysis/1Day_Secretory_Trt.comparison_ttest_wilcox.xlsx")
+# 
+# sec_D1_PBS.vs.FT240 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.FT240") 
+# sec_D1_FT240.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "FT240.vs.OVCAR3") 
+# sec_D1_PBS.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.OVCAR3") 
+# 
+# 
+# # Ciliated 1 Day
+# 
+# cil_d1_path <- paste0(getwd(), "/analysis/1Day_Ciliated_Trt.comparison_ttest_wilcox.xlsx")
+# 
+# cil_D1_PBS.vs.FT240 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.FT240") 
+# cil_D1_FT240.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "FT240.vs.OVCAR3") 
+# cil_D1_PBS.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.OVCAR3") 
+# 
+# 
+# #secretory day 14
+# 
+# sec_d14_path <- paste0(getwd(), "/analysis/14Day_Secretory_Trt.comparison_ttest_wilcox.xlsx")
+# 
+# sec_D14_PBS.vs.FT240 <- read_xlsx(path = sec_d14_path, sheet = "PBS.vs.FT240") 
+# sec_D14_FT240.vs.OVCAR3 <- read_xlsx(path = sec_d14_path, sheet = "FT240.vs.OVCAR3") 
+# sec_D14_PBS.vs.OVCAR3 <- read_xlsx(path = sec_d14_path, sheet = "PBS.vs.OVCAR3") 
+# 
+# 
+# 
+# # Ciliated Day 14
+# 
+# cil_d14_path <- paste0(getwd(), "/analysis/14Day_Ciliated_Trt.comparison_ttest_wilcox.xlsx")
+# 
+# cil_D14_PBS.vs.FT240 <- read_xlsx(path = cil_d14_path, sheet = "PBS.vs.FT240")
+# cil_D14_FT240.vs.OVCAR3 <- read_xlsx(path = cil_d14_path, sheet = "FT240.vs.OVCAR3") 
+# cil_D14_PBS.vs.OVCAR3 <- read_xlsx(path = cil_d14_path, sheet = "PBS.vs.OVCAR3") 
 
 ```
 
@@ -183,7 +452,7 @@ D - FT240 v PBS in Ciliated Cells
 Note that the Volcano Plots generated may differ slightly from the volcano plots in the paper because tasks such as labeling indivudal points are subject to slight random variations.
 
 
-### FUNCT: top_genes()
+#### FUNCT: top_genes()
 
 Usage: this function takes a df of genes with log_fold and p_values and outputs a df with the top n genes according the selected sorting criteria.
 
@@ -232,16 +501,18 @@ top_genes <- function(df = NA, sort_method = "manh", n_genes = 10){
 
 
 
-### FUNCT: volcano_plot
+#### FUNCT: volcano_plot
 
 The following function specifies the volcano plot settings for all the following graphs. 
 
 
 ```{r}
 
+
 volcano_plot <- function(
     df = NULL,
-    highlight_genes = c(), #empty list
+    highlight_genes_purple = c(), #empty list
+    highlight_genes_orange = c(), #empty list
     title_name = NULL,
     upreg = NULL,
     downreg = NULL,
@@ -271,14 +542,16 @@ volcano_plot <- function(
   df$color[df$log_fold < -FC_cutoff & df$p_value_t < 0.05] <- "Downregulated"
   # df$color[df$log_fold > FC_cutoff & df$padj < 0.05] <- "Upreg & padj<0.05"
   # df$color[df$log_fold < -FC_cutoff & df$padj < 0.05] <- "Downreg & padj<0.05"
-  df$color[df$Marker.name %in% highlight_genes] <- "Other"
+  df$color[df$Marker.name %in% highlight_genes_orange] <- "Orange"
+  df$color[df$Marker.name %in% highlight_genes_purple] <- "Purple"
   df$color <- factor(df$color,
-                        levels = c("NS or FC < 0.5", "Upregulated", "Downregulated", "Upreg & padj<0.05", "Downreg & padj<0.05", "Other"))
+                        levels = c("NS or FC < 0.5", "Upregulated", "Downregulated", "Upreg & padj<0.05", "Downreg & padj<0.05", "Orange", "Purple"))
 
   # df of the top `n` genes to label
   genes_to_label <- top_genes(df = df, sort_method = sort_method, n_gene = num_genes)
   # df of genes to highlight
-  genes_to_highlight <- df[df$Marker.name %in% highlight_genes, ]
+  genes_to_highlight_orange <- df[df$Marker.name %in% highlight_genes_orange, ]
+  genes_to_highlight_purple <- df[df$Marker.name %in% highlight_genes_purple, ]
 
 
   ggplot(df, aes(x = log_fold, y = minus_log10.p.value_t))+
@@ -295,7 +568,8 @@ volcano_plot <- function(
                                   # `Downreg & padj<0.05` = "light blue",
                                   # `Upreg & padj<0.05` = "light red",
                                   `NS or FC < 0.5` = "gray",
-                                  `Other` = "darkorchid"),
+                                  `Purple` = "darkorchid",
+                                  `Orange` = "darkorange"),
                        guide = guide_legend(override.aes = list(size = 6)))+
 
     geom_vline(xintercept = 0.5, linetype = "dashed", color = "blue")+
@@ -307,9 +581,13 @@ volcano_plot <- function(
 
 
     # highlight desired genes
-        geom_point(data = genes_to_highlight,
+        geom_point(data = genes_to_highlight_purple,
                aes(x = log_fold, y = minus_log10.p.value_t),
                color = "darkorchid"
+               )+
+            geom_point(data = genes_to_highlight_orange,
+               aes(x = log_fold, y = minus_log10.p.value_t),
+               color = "darkorange"
                )+
 
     # label upregulated genes
@@ -329,7 +607,7 @@ volcano_plot <- function(
                     max.overlaps = 40
                     )+
 
-    geom_label_repel(data = genes_to_highlight,
+    geom_label_repel(data = genes_to_highlight_orange,
                      aes(label = Marker.name,
                          x = log_fold,
                          y = minus_log10.p.value_t),
@@ -341,7 +619,24 @@ volcano_plot <- function(
                     # max.time = 100,
                     # max.iter = 10^6,
                     size = lab_size,
-                    max.overlaps = 40
+                    max.overlaps = 40,
+                    colour = "black"
+                    )+
+
+    geom_label_repel(data = genes_to_highlight_purple,
+                     aes(label = Marker.name,
+                         x = log_fold,
+                         y = minus_log10.p.value_t),
+                     # xlim = c(1, NA)
+                    # # nudge_x = c(0.5, -0.5),
+                    # nudge_y = c(0.2, -0.2),
+                    # box.padding = unit(0.5, "lines"),
+                    # point.padding = unit(.3+3*0.1, "lines"),
+                    # max.time = 100,
+                    # max.iter = 10^6,
+                    size = lab_size,
+                    max.overlaps = 40,
+                    colour = "black"
                     )+
 
     theme_light(base_size = 16, base_family = "sans")+
@@ -353,11 +648,12 @@ volcano_plot <- function(
     theme(legend.position = "none")
 }
 
+
 ```
 
 
 
-### FUNCT: add_labels
+#### FUNCT: add_labels
 
 ```{r}
 
@@ -426,7 +722,7 @@ add_labels <- function(plot = NA, df = NA, n_genes = 10, method = "manh", highli
 ```
 
 
-### FUNCT: venn_compare()
+#### FUNCT: venn_compare()
 
 ```{r}
 
@@ -509,35 +805,64 @@ venn_compare <- function(data_left = sec_D1_PBS.vs.FT240, data_right = sec_D1_PB
 
 ```
 
-### 1 - Fig3 Volcano Plots
+#### Fig3.1 -  Volcano Plots
 
 ```{r fig.height=9, fig.width=13}
+
 
 # Day 1 Volcano Plots
 
 
 # choose label size
 size <- 3
-genes <- 30
+genes <- 40
 
-list_genes <- c("CXCL2", "CCL2", "CXCL10", "CCL18", "VCAM1", "FLNA", "CSF1", "ICAM1", "TXNIP")
 
-d1_sec_plot_OVC <- volcano_plot(df = sec_D1_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Secretory Cells, Day 1)", upreg = "OVCAR3", downreg = "PBS", flip_log_fold = TRUE, lab_size = size, num_genes = genes)+ theme(
+# Checks
+
+highlight_up_FT240_sec <-  sec_D1_PBS.vs.FT240[sec_D1_PBS.vs.FT240$log_fold > 0.5 & sec_D1_PBS.vs.FT240$p_value_t < 0.05, ]$Marker.name
+highlight_down_FT240_sec <-  sec_D1_PBS.vs.FT240[sec_D1_PBS.vs.FT240$log_fold < -0.5 & sec_D1_PBS.vs.FT240$p_value_t < 0.05, ]$Marker.name
+highlight_up_OVCAR3_sec <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold > 0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
+ <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold < -0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
+
+highlight_up_OVCAR3_sec <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold > 0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
+highlight_down_OVCAR3_sec <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold < -0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
+
+
+
+# list_changed_OVCAR3_sec <- c("ACTB", "LDHB", "CD44", "NUPR1", "IRF1", "S100A9", "LTF", "KIR Family")
+# list_changed_FT240_sec <- c("ALDOA", "CSF3R", "CALML3", "C4B")
+
+# list_genes <- c("CXCL2", "CCL2", "CXCL10", "CCL18", "VCAM1", "FLNA", "CSF1", "ICAM1", "TXNIP")
+
+d1_sec_plot_OVC <- volcano_plot(df = sec_D1_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Secretory Cells, Day 1)", 
+                                # highlight_genes_purple= c("REL", "TNFAIP3"), #highlight_down_OVCAR3_sec,
+                                #highlight_genes_orange=highlight_up_OVCAR3_sec,
+                                upreg = "OVCAR3", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes)+ theme(
   axis.title = element_text(size = 20)) 
 
 
-d1_cil_plot_OVC <- volcano_plot(df = cil_D1_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Ciliated Cells, Day 1)", upreg = "OVCAR3", downreg = "PBS", flip_log_fold = TRUE, lab_size = size, num_genes = genes) + theme(
+d1_cil_plot_OVC <- volcano_plot(df = cil_D1_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Ciliated Cells, Day 1)", 
+                                highlight_genes_purple= c("REL", "TNFAIP3"),# highlight_genes_purple=c("PPL", "HSP90B1", "FGF10"),
+                                # highlight_genes_orange=c("CDKN1C"),
+                                upreg = "OVCAR3", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes) + theme(
   axis.title = element_text(size = 20))
 
 
 
 
 
-d1_sec_plot_FT <- volcano_plot(df = sec_D1_PBS.vs.FT240, title = "FT240 vs PBS \n(Secretory Cells, Day 1)", upreg = "FT240", downreg = "PBS", flip_log_fold = TRUE, lab_size = size, num_genes = genes)+ theme(
+d1_sec_plot_FT <- volcano_plot(df = sec_D1_PBS.vs.FT240, title = "FT240 vs PBS \n(Secretory Cells, Day 1)", 
+                                # highlight_genes_purple= c("ALDOA", "CSF3R", "CALML3", "C4B"), 
+                                # highlight_genes_orange= c("CCL3/L1"),
+                               upreg = "FT240", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes)+ theme(
   axis.title = element_text(size = 20)) 
 
 
-d1_cil_plot_FT <- volcano_plot(df = sec_D1_PBS.vs.FT240 , title = "FT240 vs PBS \n(Ciliated Cells, Day 1)", upreg = "FT240", downreg = "PBS", flip_log_fold = TRUE, lab_size = size, num_genes = genes) + theme(
+d1_cil_plot_FT <- volcano_plot(df = cil_D1_PBS.vs.FT240 , title = "FT240 vs PBS \n(Ciliated Cells, Day 1)", 
+                                # highlight_genes_purple=c("ACTB", "CD63", "CALML3"),
+                                # highlight_genes_orange=c("CD68", "PTTG2", "CCL15"),
+                               upreg = "FT240", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes) + theme(
   axis.title = element_text(size = 20))
 
 
@@ -545,10 +870,9 @@ d1_cil_plot_FT <- volcano_plot(df = sec_D1_PBS.vs.FT240 , title = "FT240 vs PBS 
   (d1_sec_plot_OVC | d1_sec_plot_FT) / 
   (d1_cil_plot_OVC | d1_cil_plot_FT) 
 
-
 ```
 
-### 2 - Fig3 Venn Diagrams
+#### Fig3.2 - Venn Diagrams
 
 
 ```{r fig.height=3.5, fig.width=10}
@@ -557,11 +881,11 @@ d1_cil_plot_FT <- volcano_plot(df = sec_D1_PBS.vs.FT240 , title = "FT240 vs PBS 
 # Day 1 Venn Diagrams
 
 venn_d1_sec <- venn_compare(data_left = sec_D1_PBS.vs.FT240, data_right = sec_D1_PBS.vs.OVCAR3, 
-                            flip_log_fold = TRUE, left = "FT240", right = "OVCAR3")
+                            flip_log_fold = F, left = "FT240", right = "OVCAR3")
 
 
 venn_d1_cil <- venn_compare(data_left = cil_D1_PBS.vs.FT240, data_right = cil_D1_PBS.vs.OVCAR3, 
-                            flip_log_fold = TRUE, left = "FT240", right = "OVCAR3") 
+                            flip_log_fold = F, left = "FT240", right = "OVCAR3") 
 
 
 venn_d1_sec
@@ -583,7 +907,7 @@ D - FT240 v PBS in Ciliated Cells
 
 Note that the Volcano Plots generated may differ slightly from the volcano plots in the paper because tasks such as labeling indivudal points are subject to slight random variations.
 
-### 1 - Fig4 Volcano plots
+#### Fig4.1 - Volcano plots
 
 ```{r fig.height=9, fig.width=13}
 
@@ -591,19 +915,19 @@ Note that the Volcano Plots generated may differ slightly from the volcano plots
 # Day14 Volcano plots
 
 
-d14_sec_plot_OVC <- volcano_plot(df = sec_D14_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Secretory Cells, Day 14)", upreg = "OVCAR3", downreg = "PBS", flip_log_fold = TRUE, lab_size = size)+ theme(
+d14_sec_plot_OVC <- volcano_plot(df = sec_D14_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Secretory Cells, Day 14)", upreg = "OVCAR3", downreg = "PBS", flip_log_fold = F, lab_size = size)+ theme(
   axis.title = element_text(size = 20))
 
 
-d14_cil_plot_OVC <- volcano_plot(df = cil_D14_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Ciliated Cells, Day 14)", upreg = "OVCAR3", downreg = "PBS", flip_log_fold = TRUE, lab_size = size) + theme(
+d14_cil_plot_OVC <- volcano_plot(df = cil_D14_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Ciliated Cells, Day 14)", upreg = "OVCAR3", downreg = "PBS", flip_log_fold = F, lab_size = size) + theme(
   axis.title = element_text(size = 20))
 
 
-d14_sec_plot_FT <- volcano_plot(df = sec_D14_PBS.vs.FT240, title = "FT240 vs PBS \n(Secretory Cells, Day 14)", upreg = "FT240", downreg = "PBS", flip_log_fold = TRUE, lab_size = size)+ theme(
+d14_sec_plot_FT <- volcano_plot(df = sec_D14_PBS.vs.FT240, title = "FT240 vs PBS \n(Secretory Cells, Day 14)", upreg = "FT240", downreg = "PBS", flip_log_fold = F, lab_size = size)+ theme(
   axis.title = element_text(size = 20))
 
 
-d14_cil_plot_FT <- volcano_plot(df = sec_D14_PBS.vs.FT240 , title = "FT240 vs PBS \n(Ciliated Cells, Day 14)", upreg = "FT240", downreg = "PBS", flip_log_fold = TRUE, lab_size = size) + theme(
+d14_cil_plot_FT <- volcano_plot(df = cil_D14_PBS.vs.FT240 , title = "FT240 vs PBS \n(Ciliated Cells, Day 14)", upreg = "FT240", downreg = "PBS", flip_log_fold = F, lab_size = size) + theme(
   axis.title = element_text(size = 20))
 
 
@@ -615,7 +939,7 @@ d14_cil_plot_FT <- volcano_plot(df = sec_D14_PBS.vs.FT240 , title = "FT240 vs PB
 
 ```
 
-### 2 - Fig4 Venn Diagrams
+#### Fig4.1 - Venn Diagrams
 
 ```{r fig.height=3.5, fig.width=10}
 
@@ -623,10 +947,10 @@ d14_cil_plot_FT <- volcano_plot(df = sec_D14_PBS.vs.FT240 , title = "FT240 vs PB
 
 
 venn_d14_sec <- venn_compare(data_left = sec_D14_PBS.vs.FT240, data_right = sec_D14_PBS.vs.OVCAR3, 
-                            flip_log_fold = TRUE, left = "FT240", right = "OVCAR3") 
+                            flip_log_fold = F, left = "FT240", right = "OVCAR3") 
 
 venn_d14_cil <- venn_compare(data_left = cil_D14_PBS.vs.FT240, data_right = cil_D14_PBS.vs.OVCAR3, 
-                            flip_log_fold = TRUE, left = "FT240", right = "OVCAR3") 
+                            flip_log_fold = F, left = "FT240", right = "OVCAR3") 
 
 
 venn_d14_sec
@@ -640,9 +964,9 @@ venn_d14_cil
 Figure 5 included 4 GO plots and 2 heat maps showing upregulated and downregulated genes following OVCAR3 EV treatment. 
 
 
-### 1. Create GO Plots
+### Fig5.1 - Create GO Plots
 
-### 1.1 FUNCT: plot_go()
+#### FUNCT: plot_go()
 
 The following function creates plots to display the results of Gene Ontology analysis data.
 
@@ -650,10 +974,14 @@ It takes a table with Pathway, Fold.Enrichment,  nGenes, and Enrichment.FDR and 
 
 ```{r}
 
-plot_GO <- function(data = BP_OVC_sec, n_graph = 10){
+plot_GO <- function(data = BP_OVC_sec, n_graph = 10, n_genes_min = 5){
   
-  # retreive the top n pathways
+  # retrieve the top n pathways
+  data <- data[data$nGenes > n_genes_min, ]
+    
   plot1_data <- head(data, n = n_graph) 
+  
+
   
   # simplify pathway names
   plot1_data$Pathway <- gsub("^GO:[0-9]+ ", "", plot1_data$Pathway)
@@ -670,7 +998,10 @@ plot_GO <- function(data = BP_OVC_sec, n_graph = 10){
                      "proliferation" = "prolif",
                      "negative" = "neg",
                      "positive" = "pos",
-                     "regulation" = "reg")
+                     "regulation" = "reg",
+                     "binding" = "bind.",
+                     "transcription" = "transcr",
+                     "regulatory" = "reg")
 
   # Function to replace words with abbreviations
   simplify_names <- function(name) {
@@ -717,7 +1048,7 @@ plot_GO <- function(data = BP_OVC_sec, n_graph = 10){
 ```
 
 
-### 1.2 create_GO_plots
+####  create_GO_plots
 
 These GO plots use the new GO tables generated using just the OVCAR3 upregulated genes that were NOT also upregulated by FT240 treatment (i.e. uniquely upregulated transcripts).
 
@@ -725,17 +1056,17 @@ These GO plots use the new GO tables generated using just the OVCAR3 upregulated
 ```{r}
 
 
-BP_SEC_GO <- plot_GO(data = BP_OVC_sec_new, n_graph = 10) + ggtitle("GO Biological Pathways upregulated in \n Secretory Cells after 1-Day Treatment \n with OVCAR3 EVs") + theme(plot.caption = element_text(hjust = 0, face= "italic"), #Default is hjust=1
+BP_SEC_GO <- plot_GO(data = BP_OVC_sec_new, n_graph = 15) + ggtitle("GO Biological Pathways upregulated in \n Secretory Cells after 1-Day Treatment \n with OVCAR3 EVs") + theme(plot.caption = element_text(hjust = 0, face= "italic"), #Default is hjust=1
         plot.title.position = "plot", #NEW parameter. Apply for subtitle too.
         plot.caption.position =  "plot")+ theme(plot.title = element_text(size = 24))
 
-CC_SEC_GO <- plot_GO(data = CC_PBS_sec_new, n_graph = 6)  + ggtitle("GO Cellular Components downregulated in \n Secretory Cells after 1-Day Treatment \n with OVCAR3 EVs
+CC_SEC_GO <- plot_GO(data = CC_PBS_sec_new, n_graph = 15)  + ggtitle("GO Cellular Components downregulated in \n Secretory Cells after 1-Day Treatment \n with OVCAR3 EVs
 ") + theme(plot.caption = element_text(hjust = 0, face= "italic"), #Default is hjust=1
         plot.title.position = "plot", #NEW parameter. Apply for subtitle too.
         plot.caption.position =  "plot")+ theme(plot.title = element_text(size = 24))
 
 
-BP_CIL_GO <- plot_GO(data = BP_OVC_cil_new, n_graph = 10) + ggtitle("GO Biological Pathways upregulated in \n Ciliated Cells after 1-Day Treatment \n with OVCAR3 EVs") + theme(plot.caption = element_text(hjust = 0, face= "italic"), #Default is hjust=1
+BP_CIL_GO <- plot_GO(data = BP_OVC_cil_new, n_graph = 15) + ggtitle("GO Biological Pathways upregulated in \n Ciliated Cells after 1-Day Treatment \n with OVCAR3 EVs") + theme(plot.caption = element_text(hjust = 0, face= "italic"), #Default is hjust=1
         plot.title.position = "plot", #NEW parameter. Apply for subtitle too.
         plot.caption.position =  "plot")+ theme(plot.title = element_text(size = 24))
 
@@ -748,21 +1079,21 @@ MF_CIL_GO <- plot_GO(data = MF_ovc_cil_new, n_graph = 10) + ggtitle("GO Molecula
 
 ```
 
-### 1.3 Merge GO plots into one figure
+####  Merge GO plots into one figure
 
-```{r fig.height=26, fig.width=32}
+```{r fig.height=24, fig.width=16}
 
 # Generate the GO Plots for the figure
 
 figure_right <- (BP_SEC_GO  + CC_SEC_GO + BP_CIL_GO + MF_CIL_GO)
 
-# figure_right
+figure_right
 
 
 ```
 
 
-### 2. Create heatmap
+### Fig5.2 - Create heatmap
 
 Create heatmaps with
 
@@ -770,7 +1101,7 @@ Create heatmaps with
 2. Genes of interest in y-axis
 3. values of genes of interest filled in as colors. 
 
-### 2.1 FUNCT: subset_dataset
+#### FUNCT: subset_dataset
 ```{r}
 subset_dataset <- function(dataset = NA, subset_by = NA, value_to_select = NA){
   
@@ -826,22 +1157,22 @@ EV_1_day_cil_noFT240 <- subset_dataset(dataset = EV_1_day_cil, subset_by = "Trea
 # 
 # 
 # # Secretory 1 Day
-# 
+# # 
 # sec_d1_path <- paste0(getwd(), "/analysis/1Day_Secretory_Trt.comparison_ttest_wilcox.xlsx")
 # 
-# sec_D1_PBS.vs.FT240 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.FT240") 
-# # sec_D1_FT240.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "FT240.vs.OVCAR3") 
-# sec_D1_PBS.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.OVCAR3") 
+# sec_D1_PBS.vs.FT240 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.FT240")
+# # sec_D1_FT240.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "FT240.vs.OVCAR3")
+# sec_D1_PBS.vs.OVCAR3 <- read_xlsx(path = sec_d1_path, sheet = "PBS.vs.OVCAR3")
 # 
 # 
-# # Ciliated 1 Day
+# # # Ciliated 1 Day
 # 
 # cil_d1_path <- paste0(getwd(), "/analysis/1Day_Ciliated_Trt.comparison_ttest_wilcox.xlsx")
 # 
-# cil_D1_PBS.vs.FT240 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.FT240") 
-# # cil_D1_FT240.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "FT240.vs.OVCAR3") 
-# cil_D1_PBS.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.OVCAR3") 
-# 
+# cil_D1_PBS.vs.FT240 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.FT240")
+# # cil_D1_FT240.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "FT240.vs.OVCAR3")
+# cil_D1_PBS.vs.OVCAR3 <- read_xlsx(path = cil_d1_path, sheet = "PBS.vs.OVCAR3")
+
 
 ```
 
@@ -870,7 +1201,7 @@ EV_1_day_cil_noFT240 <- subset_dataset(dataset = EV_1_day_cil, subset_by = "Trea
 ```
 
 
-### 2.3 Get List of Genes of Interest (GOI)
+####  List Genes of Interest (GOI)
 
 ```{r}
 
@@ -878,15 +1209,15 @@ pt_IDs <- unique(pData(EV_1_day_cil)$Patient)
 
 treatments <- unique(pData(EV_1_day_cil)$Treatment)
 
-GOI_up <- sec_D1_PBS.vs.OVCAR3[(sec_D1_PBS.vs.OVCAR3$log_fold < -0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05), ]$Marker.name
+GOI_up <- sec_D1_PBS.vs.OVCAR3[(sec_D1_PBS.vs.OVCAR3$log_fold > 0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05), ]$Marker.name
 
-GOI_down <- sec_D1_PBS.vs.OVCAR3[(sec_D1_PBS.vs.OVCAR3$log_fold > 0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05), ]$Marker.name
+GOI_down <- sec_D1_PBS.vs.OVCAR3[(sec_D1_PBS.vs.OVCAR3$log_fold < -0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05), ]$Marker.name
 
 GOI <-  c(GOI_up, GOI_down)
 
 
 # function to get significant genes
-get_sig_genes <- function(df = NA, type = "upreg", flip_log_fold = F){
+get_sig_genes <- function(df, type = "upreg", flip_log_fold = F,  lfc_thresh = 0.5, p_thresh = 0.05){
   
   # flip log fold change if needed
   if(flip_log_fold){
@@ -894,10 +1225,10 @@ get_sig_genes <- function(df = NA, type = "upreg", flip_log_fold = F){
   }
   
   if(type == "upreg"){
-    sig_genes <- df[df$log_fold > 0.5 & df$p_value_t < 0.05, ]$Marker.name
+    sig_genes <- df[df$log_fold > lfc_thresh & df$p_value_t < p_thresh, ]$Marker.name
   }
   else if(type == "downreg"){
-    sig_genes <- df[df$log_fold < -0.5 & df$p_value_t < 0.05, ]$Marker.name
+    sig_genes <- df[df$log_fold < -lfc_thresh & df$p_value_t < p_thresh, ]$Marker.name
   }
   
   return(sig_genes)
@@ -908,53 +1239,25 @@ get_sig_genes <- function(df = NA, type = "upreg", flip_log_fold = F){
 
 # Secretory Segments
 
-  upreg_OVC_sec <- get_sig_genes(df = sec_D1_PBS.vs.OVCAR3, type = "upreg", flip_log_fold = T)
+  upreg_OVC_sec <- get_sig_genes(df = sec_D1_PBS.vs.OVCAR3, type = "upreg", flip_log_fold = F)
   
-  downreg_OVC_sec <- get_sig_genes(df = sec_D1_PBS.vs.OVCAR3, type = "downreg", flip_log_fold = T)
+  downreg_OVC_sec <- get_sig_genes(df = sec_D1_PBS.vs.OVCAR3, type = "downreg", flip_log_fold = F)
 
-  upreg_FT240_sec <- get_sig_genes(df = sec_D1_PBS.vs.FT240, type = "upreg", flip_log_fold = T)
+  upreg_FT240_sec <- get_sig_genes(df = sec_D1_PBS.vs.FT240, type = "upreg", flip_log_fold = F)
     
-  downreg_FT240_sec  <- get_sig_genes(df = sec_D1_PBS.vs.FT240, type = "downreg", flip_log_fold = T)
+  downreg_FT240_sec  <- get_sig_genes(df = sec_D1_PBS.vs.FT240, type = "downreg", flip_log_fold = F)
   
   # Ciliated segments
   
-  upreg_OVC_cil <- get_sig_genes(df = cil_D1_PBS.vs.OVCAR3, type = "upreg", flip_log_fold = T)
+  upreg_OVC_cil <- get_sig_genes(df = cil_D1_PBS.vs.OVCAR3, type = "upreg", flip_log_fold = F)
   
-  downreg_OVC_cil <- get_sig_genes(df = cil_D1_PBS.vs.OVCAR3, type = "downreg", flip_log_fold = T)
+  downreg_OVC_cil <- get_sig_genes(df = cil_D1_PBS.vs.OVCAR3, type = "downreg", flip_log_fold = F)
 
-  upreg_FT240_cil <- get_sig_genes(df = cil_D1_PBS.vs.FT240, type = "upreg", flip_log_fold = T)
+  upreg_FT240_cil <- get_sig_genes(df = cil_D1_PBS.vs.FT240, type = "upreg", flip_log_fold = F)
     
-  downreg_FT240_sec  <- get_sig_genes(df = cil_D1_PBS.vs.FT240, type = "downreg", flip_log_fold = T)
+  downreg_FT240_cil  <- get_sig_genes(df = cil_D1_PBS.vs.FT240, type = "downreg", flip_log_fold = F)
   
-  
-#   
-#   upreg_OVC_only_sec <- upreg_OVC_sec[!(upreg_OVC_sec %in% upreg_FT240_sec)] # length = 36
-#   
-#   downreg_OVC_only_sec <- downreg_OVC_sec[!(downreg_OVC_sec %in% downreg_FT240_sec)] # length = 25
-#   
-#   upreg_OVC_only_cil <- upreg_OVC_sec[!(upreg_OVC_sec %in% upreg_FT240_sec)] # length = 36
-#   
-#   downreg_OVC_only_cil <- downreg_OVC_sec[!(downreg_OVC_sec %in% downreg_FT240_sec)] # length = 25
-#   
-#   
-# GOI_new <- c(upreg_OVC_only_sec, downreg_OVC_only_sec) # 36, 25
-#   #c("CCL2", "CXCL10", "CXCL2", "CCL18", "CXCL11", "CCL15", "CXCL1", "CXCL8", "CXCL5", "CXCL3", "ICAM1", "NFKB1", "NFKB2", "VCAM1", "KRT19", "CD68", "ITGA3", "ADM")
 
-
-
-
-# now create list of just OVCAR3 Up and DOWN
-
-# get a list of all upregulated genes in PBS v OVC
-  upreg_OVC_cil <- cil_D1_PBS.vs.OVCAR3[cil_D1_PBS.vs.OVCAR3$log_fold < -0.5 & cil_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
-  # get a list of DOWNregulated in data1
-  downreg_OVC_cil <- cil_D1_PBS.vs.OVCAR3[cil_D1_PBS.vs.OVCAR3$log_fold > 0.5 & cil_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
-  
-  #UP data 2
-  upreg_FT240_cil <- cil_D1_PBS.vs.FT240[cil_D1_PBS.vs.FT240$log_fold < -0.5 & cil_D1_PBS.vs.FT240$p_value_t < 0.05, ]$Marker.name
-  #DOWN data 2
-  downreg_FT240_cil  <- cil_D1_PBS.vs.FT240[cil_D1_PBS.vs.FT240$log_fold > 0.5 & cil_D1_PBS.vs.FT240$p_value_t < 0.05, ]$Marker.name
-  
 
   
   # Genes of interest, Secretory
@@ -963,7 +1266,8 @@ upreg_OVC_only_sec <- upreg_OVC_sec[!(upreg_OVC_sec %in% upreg_FT240_sec)] # len
 downreg_OVC_only_sec <- downreg_OVC_sec[!(downreg_OVC_sec %in% downreg_FT240_sec)] # length = 25
   
   
-GOI_sec <- c(upreg_OVC_only_sec, downreg_OVC_only_sec) # 36, 25
+GOI_sec <- c(upreg_OVC_only_sec, downreg_OVC_only_sec) # 36, 22 
+
 
   
 
@@ -972,16 +1276,18 @@ GOI_sec <- c(upreg_OVC_only_sec, downreg_OVC_only_sec) # 36, 25
   downreg_OVC_only_cil <- downreg_OVC_cil[!(downreg_OVC_cil %in% downreg_FT240_cil)] # length = 8
   
   
-GOI_cil <- c(upreg_OVC_only_cil, downreg_OVC_only_cil) # 13, 8
+GOI_cil <- c(upreg_OVC_only_cil, downreg_OVC_only_cil) # 13, 6
+
+# agrees with venn diagram
 
 ```
 
 
-### 2.4 Functions for Heatmap
+####  Functions for Heatmap
 
 ```{r}
 
-pt_order <- c("pt9", "pt12", "pt10", "pt6", "pt1", "pt3", "pt5", "pt7", "pt2", "pt11", "pt8", "pt4")
+pt_order <- c("pt9", "pt12", "pt10", "pt6", "pt1", "pt3", "pt5", "pt7", "pt2", "pt11", "pt8", "pt4", "pt13")
   #c("UH000025", "5929-606856", "5929-606939", "NW71422", "461-27304", "5929-607267", "5929-607140", "461-27413", "5929-606950", "461-27444", "UH00006", "5929-606994")
 
 
@@ -1037,7 +1343,7 @@ create_ordered_matrix <- function(dataset = EV_1_day_sec,
 ```
 
 
-### 2.5 Create Colors for heatmap
+####  Create Colors for heatmap
 
 
 ```{r fig.height=12, fig.width=6}
@@ -1076,7 +1382,7 @@ names(my_colors$Patient) <- pt_order
 ```
 
 
-### 2.6 FUNCT: create_heatmap()
+#### FUNCT: create_heatmap()
 
 This function used `ComplexHeatmap` to create a heatmap. 
 
@@ -1090,7 +1396,9 @@ create_heatmap <- function(dataset = EV_1_day_sec,
                                   legend = TRUE, 
                                   font = 20,
                                   gene_list = GOI_new,
-                                  split_point = 36){
+                                  split_point = 36,
+                                  num_PBS = 3,
+                                  num_FT240 = 2){
   
   # create the annotation column
   annotation_col <- create_annotation_col(dataset = dataset, order_treatment = order_treatment, order_Pts = order_Pts)
@@ -1146,7 +1454,7 @@ create_heatmap <- function(dataset = EV_1_day_sec,
                 ),  # Adjust row gaps
   
     column_split = factor(
-                  c(rep("PBS", 11), rep("FT240", 11), rep("OVCAR3", ncol(matrix_scaled) - 22)),
+                  c(rep("PBS", num_PBS), rep("FT240", num_FT240), rep("OVCAR3", ncol(matrix_scaled) - num_PBS - num_FT240)),
                     levels = c("PBS", "FT240", "OVCAR3")),
   
     top_annotation = HeatmapAnnotation(df = annotation_df, col = annotation_colors, 
@@ -1185,9 +1493,9 @@ create_heatmap <- function(dataset = EV_1_day_sec,
 
 
 
-### 2.7 Create Heatmaps and Combine
+#### Create Heatmaps and Combine
 
-```{r fig.height=14, fig.width=6}
+```{r fig.height=20, fig.width=12}
 
 
 heatmap1 = create_heatmap(dataset = EV_1_day_sec, 
@@ -1196,7 +1504,9 @@ heatmap1 = create_heatmap(dataset = EV_1_day_sec,
                   annotation_colors = my_colors,
                   title = "1-Day Treatment, \n Secretory Cells", legend = FALSE, font = 24,
                   gene_list = GOI_sec,
-                  split_point = 36)
+                  split_point = 50,
+                  num_PBS = 12,
+                  num_FT240 = 11)
 
 
 heatmap2 = create_heatmap(dataset = EV_1_day_cil, 
@@ -1205,7 +1515,10 @@ heatmap2 = create_heatmap(dataset = EV_1_day_cil,
                       annotation_colors = my_colors,
                       title = "1-Day Treatment, \n Ciliated Cells", font = 24,
                       gene_list = GOI_cil,
-                      split_point = 13)
+                      split_point = 21,
+                      num_PBS = 11,
+                      num_FT240 = 10)
+
 
 
 
@@ -1225,23 +1538,24 @@ gb2 = grid.grabExpr(draw(
   merge_legend = TRUE,
 ))
 
+library(gridExtra)
 
+grid.arrange(gb, gb2, ncol = 2)
 
-
-draw(
-  heatmap1, 
-  heatmap_legend_side = "bottom", 
-  annotation_legend_side = "bottom", 
-  merge_legend = TRUE
-  )
-
-draw(
-  heatmap2, 
-  heatmap_legend_side = "bottom", 
-  annotation_legend_side = "bottom", 
-  merge_legend = TRUE
-  )
-
+# draw(
+#   combined_heatmap,
+#   heatmap_legend_side = "bottom", 
+#   annotation_legend_side = "bottom", 
+#   merge_legend = TRUE
+#   )
+# # 
+# draw(
+#   heatmap2, 
+#   heatmap_legend_side = "bottom", 
+#   annotation_legend_side = "bottom", 
+#   merge_legend = TRUE
+#   )
+# 
 
 
 
@@ -1269,10 +1583,37 @@ Figure6C - Volcano plot comparing EV protein change in OVCAR3 vs FT240 treated S
 
 Figure6F - GO biological Pathways associated with exo-proteins induced by OVCAR3 EVs
 
+### Fig6.1 - Volcano Plots
 
 
+#### Load Files VolcanoPlot
 
-#### Read in Files for Volcano Plots
+```{r}
+
+
+my_comparisons = list(
+  c("FT.C", "p53.C"),
+  c("p53.C", "STIC.C"),
+  c("STIC.C", "Cancer"), 
+  c("p53.C", "Cancer"),
+  c("FT.C", "Cancer")
+)
+
+
+add_sig <- function(plot, comparisons_wanted = my_comparisons, pnt = 5){
+  plot <- plot + 
+    stat_compare_means(
+      comparisons = comparisons_wanted, 
+      method = "t.test", 
+      bracket.nudge.y = -4,
+      size = pnt) +
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.10)))
+  return (plot)
+}
+
+```
+
+
 
 ```{r}
 
@@ -1293,7 +1634,7 @@ EV_protein_FT240 <- EV_protein_FT240 |> dplyr::rename(c(p_value_t = p_value_ttes
 ```
 
 
-### Generate volcano plot
+#### Generate volcano plot
 
 
 ```{r fig.height=8, fig.width=12}
@@ -1308,8 +1649,9 @@ VP_FT240
 
 ```
 
+### Fig6.2 GO Plots
 
-#### Read in files for Proteomics Go Plots
+#### Load files Proteomics Go Plots
 
 
 ```{r}
@@ -1319,7 +1661,7 @@ PBS_v_OVCAR3_GO_BP <- read.csv(file = paste0(source, "/PBS_v_OVCAR3_GO_BP_OVC_un
 
 ```
 
-### Generate GO plots
+#### Generate GO plots
 
 
 ```{r fig.width=8, fig.height=8}
@@ -1332,12 +1674,13 @@ plot_GO(data = PBS_v_OVCAR3_GO_BP[PBS_v_OVCAR3_GO_BP$nGenes > 3, ], n_graph = 10
 
 ```
 
-### Figure 7
+
+## Figure 7
 
 Figure 7 contains boxplots that were generated using R. 
 
 
-### FUNCT: subset_dataset()
+#### FUNCT: subset_dataset()
 
 ```{r}
 subset_dataset <- function(dataset = NA, subset_by = NA, value_to_select = NA){
@@ -1461,7 +1804,7 @@ make_boxplot <- function(gene = "FOXJ1", point_size = 2, dataset = NA, subset_pa
 ### FUNCT: add_sig()
 
 ```{r}
-my_comparisons = list(c("PBS", "OVCAR3"))
+my_comparisons = list(c("PBS", "OVCAR3"), c("FT240", "PBS"), c("OVCAR3", "FT240"))
 
 
 add_sig <- function(plot, comparisons_wanted = my_comparisons, pnt = 6){
@@ -1484,24 +1827,36 @@ add_sig <- function(plot, comparisons_wanted = my_comparisons, pnt = 6){
 
 gene_list <- c("CCL2", "FLNA", "VCAM1", "TPI1")
 
-day1_sec <- list(Days = c("1-Day"), Segment = c("Secretory"), Treatment = c("OVCAR3", "PBS"))
+day1_sec <- list(Days = c("1-Day"), Segment = c("Secretory"), Treatment = c("OVCAR3", "FT240", "PBS"))
 
 
 lapply(gene_list, make_boxplot, dataset = EV_q_norm, subset_pairs = day1_sec, title_append = "Day1, Secretory", add_sig = TRUE, sig_comparisons = my_comparisons)
 
 
-# Day 14 Boxplots
+# Day 14 Boxplots Sec
 
-gene_list <- c("TXNIP", "VCAM1")
+gene_list <- c("TXNIP")
 
-day14_sec <- list(Days = c("14-Day"), Segment = c("Secretory"), Treatment = c("OVCAR3", "PBS"))
+day14_sec <- list(Days = c("14-Day"), Segment = c("Secretory"), Treatment = c("OVCAR3", "FT240", "PBS"))
 
 
 lapply(gene_list, make_boxplot, dataset = EV_q_norm, subset_pairs = day14_sec, title_append = "Day14, Secretory", add_sig = TRUE, sig_comparisons = my_comparisons)
+
+# Day 14 Boxplots Cil
+
+gene_list <- c("VCAM1")
+
+day14_sec <- list(Days = c("14-Day"), Segment = c("Ciliated"), Treatment = c("OVCAR3", "FT240", "PBS"))
+
+
+lapply(gene_list, make_boxplot, dataset = EV_q_norm, subset_pairs = day14_sec, title_append = "Day14, Ciliated", add_sig = TRUE, sig_comparisons = my_comparisons)
+
 ```
 
 
-### Supplemental Figure 3
+
+
+## Supp. Figure 3
 
 
 
@@ -1574,24 +1929,27 @@ t.test_logfold <- function(obj, variable_type = "segment", upreg_group = "Ciliat
 
 #### 1. Volcano Plot Ciliated vs Secretory
 
-```{r}
+```{r fig.height=5, fig.width=12}
 
 cil_v_sec_t.test_D01 <- t.test_logfold(dataEV_D01, variable_type = "segment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm")
 
-cil_v_sec_t.test_D01 <- cil_v_sec_t.test_D01 |> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
+cil_v_sec_t.test_D01 <- cil_v_sec_t.test_D01 #|> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
 
 
 
-volcano_plot(df = cil_v_sec_t.test_D01, title_name = "Ciliated vs Secretory Comparison (Day 1)", highlight_genes = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
+vp1 <- volcano_plot(df = cil_v_sec_t.test_D01, title_name = "Ciliated vs Secretory Comparison (Day 1)", highlight_genes_purple = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
 
 
 
 cil_v_sec_t.test_D14 <- t.test_logfold(dataEV_D14, variable_type = "segment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm")
 
-cil_v_sec_t.test_D14 <- cil_v_sec_t.test_D14 |> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
+cil_v_sec_t.test_D14 <- cil_v_sec_t.test_D14 #|> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
 
 
-volcano_plot(df = cil_v_sec_t.test_D14, title_name = "Ciliated vs Secretory Comparison (Day14)", highlight_genes = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
+vp2 <- volcano_plot(df = cil_v_sec_t.test_D14, title_name = "Ciliated vs Secretory Comparison (Day14)", highlight_genes_purple = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
+
+
+vp1 + vp2 
 
 
 ```
@@ -1670,11 +2028,576 @@ C <- Cil_v_Sec_Boxplot_Points(gene = "FOXJ1", dataset = dataEV_D14)
 D <- Cil_v_Sec_Boxplot_Points(gene = "PAX8", dataset = dataEV_D14)
 
 
-A 
-B
-C
-D
+A+B #day1
+
+C+D
+
 ```
+
+
+Not included, Supplemental Figures 4-9
+
+
+## Supplemental Figure 10
+
+OVCAR3 v PBS (sec, day 1)
+FT240 v PBS (sec, day 1)
+OVCAR3 v PBS (cil, day 1)
+FT240 v PBS (cil, day 1)
+
+```{r fig.height=8, fig.width=10}
+
+genes_in_pathway <- c("NFKB1", "NFKB2", "CXCL10", "CXCL11", "IDO1", "IRF8", "IL6", "STAT1", "HLA-A", "HIF1A", "HLA-DRA", "IRF9")
+
+
+
+# Day 1 Volcano Plots
+
+
+# choose label size
+size <- 3
+genes <- 0
+
+
+
+d1_sec_plot_OVC <- volcano_plot(df = sec_D1_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Secretory Cells, Day 1)", 
+                                highlight_genes_purple= genes_in_pathway,
+                                upreg = "OVCAR3", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes)+ theme(
+  axis.title = element_text(size = 20)) 
+
+
+d1_cil_plot_OVC <- volcano_plot(df = cil_D1_PBS.vs.OVCAR3 , title = "OVCAR3 vs PBS \n(Ciliated Cells, Day 1)", 
+                                highlight_genes_purple= genes_in_pathway,
+                                upreg = "OVCAR3", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes) + theme(
+  axis.title = element_text(size = 20))
+
+
+
+
+
+d1_sec_plot_FT <- volcano_plot(df = sec_D1_PBS.vs.FT240, title = "FT240 vs PBS \n(Secretory Cells, Day 1)", 
+                                highlight_genes_purple= genes_in_pathway,
+                               upreg = "FT240", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes)+ theme(
+  axis.title = element_text(size = 20)) 
+
+
+d1_cil_plot_FT <- volcano_plot(df = cil_D1_PBS.vs.FT240 , title = "FT240 vs PBS \n(Ciliated Cells, Day 1)", 
+                               highlight_genes_purple= genes_in_pathway,
+                               upreg = "FT240", downreg = "PBS", flip_log_fold = F, lab_size = size, num_genes = genes) + theme(
+  axis.title = element_text(size = 20))
+
+
+
+  (d1_sec_plot_OVC | d1_sec_plot_FT) / 
+  (d1_cil_plot_OVC | d1_cil_plot_FT) 
+
+```
+
+
+
+
+## Supplemental Figure 11
+
+Supplemental Figure 11 is not included in this document, because it was created using data from another paper.
+
+To see Supp. Fig 11 code, go to the document HGSOC_precursor_comparison.Rmd. 
+
+
+
+
+## Supplemental Figure 12-13
+
+### Load FT240 Treatment GO Files
+
+files to load:
+
+Source: /corrected_GO_analysis
+Names:
+1. cil_downreg_FT240.xlsx
+2. cil_upreg_FT240.xlsx
+3. sec_upreg_FT240.xlsx
+4. sec_downreg_FT240.xlsx
+
+
+```{r}
+
+
+#####---CORRECTED GO ANALYSIS---#####
+
+
+# source of all related .xlsx files
+source <- paste0(getwd(), "/corrected_GO_analysis/")
+
+# Read in the .xlsx files to be used.
+
+cell_types <- c("cil", "sec")
+directions <- c("upreg", "downreg")
+analyses <- c("GO_BP", "GO_CC", "GO_MF")
+
+
+# initialize list
+
+FT240_GO <- list()
+
+rename_vec <- c("Fold Enrichment" = "Fold.Enrichment",
+                "Enrichment FDR" = "Enrichment.FDR")
+
+
+for(cell in cell_types){
+  
+  FT240_GO[[cell]] <- list()
+  
+  for(dir in directions){
+    
+    FT240_GO[[cell]][[dir]] <- list()
+    
+    file_name <- paste0("/", cell, "_", dir, "_FT240.xlsx")
+    
+    for(analysis in analyses){
+      
+      FT240_GO[[cell]][[dir]][[analysis]] <- read_xlsx(path = paste0(source, file_name), sheet = analysis) |> 
+       rename_with(
+        ~ case_when(
+        . == "Fold Enrichment" ~ "Fold.Enrichment",
+        . == "Enrichment FDR" ~ "Enrichment.FDR",
+        TRUE ~ .))
+    }
+  }
+}
+
+
+# Note on column renaming
+# ~ creates an anonymous function
+# . represents each column name
+# so we check to see if column name matches desired, then rename to desired.
+# TRUE ~ . means that all the other column names are unchanged
+
+
+
+
+```
+
+
+### Supp Figure 12
+
+General Outline:
+
+GO_BP_sec_FT240_up + GO_MF_sec_FT240_up + GO_CC_sect_FT240_up
+
+GO_BP_cil_FT240_up + GO_MF_cil_FT240_up + GO_CC_cil_FT240_up
+
+```{r fig.height=21, fig.width=24}
+
+# up in secretory cells 
+
+graph_A <- plot_GO(data = FT240_GO$sec$upreg$GO_BP) + ggtitle("GO Biological Pathway Upregulated in \n Secretory Cells by 1 Day \n FT240 EV Treatment")
+
+graph_B <- plot_GO(data = FT240_GO$sec$upreg$GO_MF) + ggtitle("GO Molecular Function Upregulated in \n Secretory Cells by 1 Day \n FT240 EV Treatment")
+
+
+graph_C <- plot_GO(data = FT240_GO$sec$upreg$GO_CC) + ggtitle("GO Cellular Components Upregulated in \n Secretory Cells by 1 Day \n FT240 EV Treatment")
+
+
+# up in ciliated cells
+
+graph_D <- plot_GO(data = FT240_GO$cil$upreg$GO_BP) + ggtitle("GO Biological Pathway Upregulated in \n Ciliated Cells by 1 Day \n FT240 EV Treatment")
+
+graph_E <- plot_GO(data = FT240_GO$cil$upreg$GO_MF) + ggtitle("GO Molecular Function Upregulated in \n Ciliated Cells by 1 Day \n FT240 EV Treatment")
+
+graph_F <- plot_GO(data = FT240_GO$cil$upreg$GO_CC) + ggtitle("GO Cellular Components Upregulated in \n Ciliated Cells by 1 Day \n FT240 EV Treatment")
+
+
+graph_A + graph_B + graph_C + graph_D + graph_E + graph_F
+
+```
+
+
+### Supp Figure 13
+General Outline:
+
+GO_BP_sec_FT240_down + GO_MF_sec_FT240_down + GO_CC_sect_FT240_down
+
+GO_BP_cil_FT240_down + GO_MF_cil_FT240_down + GO_CC_cil_FT240_down
+
+```{r fig.height=21, fig.width=24}
+
+# up in secretory cells 
+
+graph_A <- plot_GO(data = FT240_GO$sec$downreg$GO_BP) + ggtitle("GO Biological Pathway Downregulated in \n Secretory Cells by 1 Day \n FT240 EV Treatment")
+
+graph_B <- textGrob('No GO Molecular Function Pathways \n with at least 5 genes \n downregulated in secretory cells \n by FT240 EV treatment', gp=gpar(fontsize=25))
+
+#plot_GO(data = FT240_GO$sec$downreg$GO_MF) + ggtitle("GO Molecular Function Downregulated in \n Secretory Cells by 1 Day \n FT240 EV Treatment")
+
+
+graph_C <- plot_GO(data = FT240_GO$sec$downreg$GO_CC) + ggtitle("GO Cellular Components Downregulated in \n Secretory Cells by 1 Day \n FT240 EV Treatment")
+
+
+# up in ciliated cells
+
+graph_D <- plot_GO(data = FT240_GO$cil$downreg$GO_BP) + ggtitle("GO Biological Pathway Downregulated in \n Ciliated Cells by 1 Day \n FT240 EV Treatment")
+
+graph_E <- plot_GO(data = FT240_GO$cil$downreg$GO_MF) + ggtitle("GO Molecular Function Downregulated in \n Ciliated Cells by 1 Day \n FT240 EV Treatment")
+
+graph_F <- plot_GO(data = FT240_GO$cil$downreg$GO_CC) + ggtitle("GO Cellular Components Downregulated in \n Ciliated Cells by 1 Day \n FT240 EV Treatment")
+
+
+graph_A + graph_B + graph_C + graph_D + graph_E + graph_F
+
+```
+
+
+
+## Supplemental Figure 14-15
+
+
+### Load Files from Mihaela
+
+```{r}
+kegg_and_reactome_files <- paste0(getwd(), "/corrected_GO_analysis/kegg_and_reactome/files_for_plotting")
+
+
+pathway_files <- list()
+
+days <- c("Day1")
+cell_types <- c("Sec", "Cil")
+comparisons <- c("PBS.VS.OVCAR3", "PBS.VS.FT240")
+categories <- c("KEGG.UP", "KEGG.DOWN", "RCT.UP", "RCT.DOWN")
+
+
+# Initialize the main list
+pathway_files <- list()
+
+
+for(day in days){
+  pathway_files[[day]] <- list()
+  
+  day_short <- switch(day,
+                      Day1 = "1Day",
+                      # default value if no match
+                      NA_character_)
+  
+  for(cell in cell_types){
+    pathway_files[[day]][[cell]] <- list()
+    
+    # define a longer name based on the cell type used
+    long_name <- switch(cell,
+                        Sec = "Secretory",
+                        Cil = "Ciliated",
+                        # default value if no match
+                        NA_character_)
+    # get the name of the file to access
+    file_name <- paste(day_short, long_name, "ttest", sep ="_") 
+      
+    for(comp in comparisons) {
+      pathway_files[[day]][[cell]][[comp]] <- list()
+      
+      for(cat in categories){
+        
+        # define the sheet name
+        sheet_name <- paste(comp, cat, sep = ".")
+        
+        # Read in and assign file to appropriate location
+        pathway_files[[day]][[cell]][[comp]][[cat]] <- read_xlsx(
+          path = paste0(kegg_and_reactome_files, "/", file_name, ".xlsx"),
+          sheet = sheet_name,
+          range = cell_cols("B:K")
+        )
+        
+      }
+    }
+  }
+  
+  
+}
+
+# Test
+
+pathway_files$Day1$Sec$PBS.VS.OVCAR3$KEGG.UP
+
+
+
+
+```
+
+
+```{r}
+
+path_plot <- function(data = pathway_files$Day1$Cil$PBS.v.OVCAR3$RCT.DOWN, n_graph = 10, optional_title = "No significantly enriched genes"){
+  
+  data <- data[data$nGenes > 4, ]
+  plot1_data <- head(data, n = n_graph) 
+  
+
+  
+  plot1_data <- plot1_data |> mutate(minuslog10pvalue = -log10(`p-value`))
+  
+  #plot1_data <- plot1_data[plot1_data$nGenes > 2 & plot1_data$`p-value` < 0.05, ]
+  
+  if(nrow(plot1_data) == 0){
+    
+    plot <- textGrob(label = optional_title, gp = gpar(fontsize = 35))
+    return(plot)
+  }
+  
+  
+  
+  # Define a list of abbreviations
+  abbreviations <- c("response" = "resp", "mediated by" = "med", 
+                   "chemotaxis" = "chemotx", "migration" = "migr", 
+                   "immune" = "imm", "antimicrobial" = "antimicro",
+                   "Homo" = "", "sapiens" = "", "\\(human\\)" = "",
+                   "-" = "")
+
+    # Function to replace words with abbreviations
+  simplify_names <- function(name) {
+      for (word in names(abbreviations)) {
+        name <- gsub(word, abbreviations[[word]], name)
+      }
+      return(name)
+    }
+
+  # Apply the function to the description column
+  plot1_data$pathway <- sapply(plot1_data$pathway, simplify_names)
+    
+
+
+  
+  plot_df <- plot1_data  |> dplyr::arrange(minuslog10pvalue) |> mutate(pathway = factor(pathway, levels = pathway))
+
+
+
+    
+    
+    test<-   ggplot(data = plot_df,  aes(x=minuslog10pvalue, y= pathway)) +
+        geom_segment(aes(x= 0, xend=minuslog10pvalue), linewidth = 1) +
+        geom_point(aes(size= nGenes)) +
+        theme_bw() +
+        scale_y_discrete(labels = function(x) str_wrap(x, width = 25))+
+      labs(x = "-log10(p-value)")
+    
+    
+    plot <- test + theme(
+      axis.title=element_text(size=24),
+      axis.text=element_text(size=18),
+      plot.title=element_text(size=18),
+      legend.text =element_text(size=18),
+      legend.title = element_text(size = 18),
+      axis.text.y = element_text(vjust = 0.5))
+    
+    return(plot)
+}
+
+
+
+```
+
+### Supp Fig 14
+
+```{r fig.height=21, fig.width=36}
+
+library(patchwork)
+
+# Up in Sec
+
+sec_data <- pathway_files$Day1$Sec$PBS.VS.OVCAR3
+cil_data <- pathway_files$Day1$Cil$PBS.VS.OVCAR3
+
+graph_A <- path_plot(data = sec_data$RCT.UP, n_graph = 10) + ggtitle("Reactome Upregulated in Secretory Cells \n by 1 Day OVCAR3 EV Treatment")
+
+graph_B <- path_plot(data = sec_data$KEGG.UP, n_graph = 10) + ggtitle("Kegg Upregulated in Secretory Cells \n by 1 Day OVCAR3 EV Treatment")
+
+# Up in Cil
+graph_C <- path_plot(data = cil_data$RCT.UP, n_graph = 10) + ggtitle("Reactome Upregulated in Ciliated Cells \n by 1 Day OVCAR3 EV Treatment")
+
+graph_D <- path_plot(data = cil_data$KEGG.UP, n_graph = 10) + ggtitle("Kegg Upregulated in Ciliated Cells \n by 1 Day OVCAR3 EV Treatment")
+
+
+# Down in Sec
+graph_E <- path_plot(data = sec_data$RCT.DOWN, n_graph = 10) + ggtitle("Reactome Downregulated in Secretory Cells \n by 1 Day OVCAR3 EV Treatment")
+
+graph_F <- path_plot(data = sec_data$KEGG.DOWN, n_graph = 10) + ggtitle("Kegg Downregulated in Secretory Cells \n by 1 Day OVCAR3 EV Treatment")
+
+# Down in Cil
+graph_G <- path_plot(data = cil_data$RCT.DOWN, n_graph = 10, 
+                     optional_title = "No Reactome Pathways \n Downregulated by OVCAR3 EVs \n in Ciliated Cells.") 
+                      #+ ggtitle("Reactome Downregulated in Ciliated Cells \n by 1 Day OVCAR3 EV Treatment")
+
+graph_H <- path_plot(data = cil_data$KEGG.DOWN, n_graph = 10) + ggtitle("Kegg Downregulated in Ciliated Cells \n by 1 Day OVCAR3 EV Treatment")
+
+
+
+graph_A + graph_B + graph_C + graph_D + graph_E + graph_F + graph_G + graph_H +  plot_layout(nrow=2)
+
+
+```
+
+```{r fig.height=21, fig.width=36}
+sec_data <- pathway_files$Day1$Sec$PBS.VS.FT240
+cil_data <- pathway_files$Day1$Cil$PBS.VS.FT240
+
+graph_A <- path_plot(data = sec_data$RCT.UP, n_graph = 10) + ggtitle("Reactome Upregulated in Secretory Cells \n by 1 Day FT240 EV Treatment")
+
+graph_B <- path_plot(data = sec_data$KEGG.UP, n_graph = 10) + ggtitle("Kegg Upregulated in Secretory Cells \n by 1 Day FT240 EV Treatment")
+
+# Up in Cil
+graph_C <- path_plot(data = cil_data$RCT.UP, n_graph = 10) + ggtitle("Reactome Upregulated in Ciliated Cells \n by 1 Day FT240 EV Treatment")
+
+graph_D <- path_plot(data = cil_data$KEGG.UP, n_graph = 10) + ggtitle("Kegg Upregulated in Ciliated Cells \n by 1 Day FT240 EV Treatment")
+
+
+# Down in Sec
+graph_E <- path_plot(data = sec_data$RCT.DOWN, n_graph = 10,
+                     optional_title = "No Reactome Pathways \n Downregulated by FT240 EVs \n in Secretory Cells."
+                       ) + ggtitle("Reactome Downregulated in Secretory Cells \n by 1 Day FT240 EV Treatment")
+
+graph_F <- path_plot(data = sec_data$KEGG.DOWN, n_graph = 10,
+                     optional_title = "No Kegg Pathways \n Downregulated by FT240 EVs \n in Secretory Cells."
+                     ) #+ ggtitle("Kegg Downregulated in Secretory Cells \n by 1 Day OVCAR3 EV Treatment")
+
+# Down in Cil
+graph_G <- path_plot(data = cil_data$RCT.DOWN, n_graph = 10, 
+                     optional_title = "No Reactome Pathways \n Downregulated by FT240 EVs \n in Ciliated Cells.") +
+          ggtitle("Reactome Downregulated in Ciliated Cells \n by 1 Day OVCAR3 EV Treatment")
+
+
+graph_H <- path_plot(data = cil_data$KEGG.DOWN, n_graph = 10,
+                     optional_title = "No Kegg Pathways \n Downregulated by FT240 EVs \n in Ciliated Cells.") 
+                     #+ ggtitle("Kegg Downregulated in Ciliated Cells \n by 1 Day OVCAR3 EV Treatment")
+
+
+
+graph_A + graph_B + graph_C + graph_D + graph_E + graph_F + graph_G + graph_H +  plot_layout(nrow=2)
+```
+
+
+
+# Supp. Fig. 16
+
+
+```{r fig.height=15, fig.width=18}
+
+
+create_heatmap_unordered <- function(dataset = EV_1_day_sec, 
+                                  order_treatment = c("PBS", "FT240", "OVCAR3"), 
+                                  order_Pts = pt_order,
+                                  annotation_colors = my_colors, 
+                                  title = "Insert Title Here",
+                                  legend = TRUE, 
+                                  font = 20,
+                                  gene_list = GOI_new,
+                                  split_point = 36){
+  
+  # create the annotation column
+  annotation_col <- create_annotation_col(dataset = dataset, order_treatment = order_treatment, order_Pts = order_Pts)
+  # create the matrix with expression data
+  matrix_reordered <- create_ordered_matrix(dataset = dataset, order_treatment = order_treatment, order_Pts = order_Pts, gene_list = gene_list)
+  
+  
+  # First, convert your matrix to a data frame for easier manipulation
+  mat_df <- as.data.frame(matrix_reordered)
+
+  # Transpose the matrix so that columns become rows (for easier merging with annotation)
+  mat_df <- t(mat_df)
+  
+  
+
+  # Merge the matrix data with the annotation data based on column names
+  merged_df <- merge(mat_df, annotation_col, by = "row.names" )
+  
+  # Now, group by treatment and patient and compute the row-wise average
+  averaged_df <- merged_df %>%
+    group_by(Treatment, Patient) %>%
+    summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)))  # Average each row, excluding non-numeric columns
+  
+  
+  # create new annotation df
+  
+  annotation_df <- as.data.frame(averaged_df[1:2])
+  
+  matrix_averaged <- t(as.matrix(averaged_df[3: ncol(averaged_df)]))
+  
+  colnames(matrix_averaged) <- rownames(annotation_df)
+  
+  
+  # implement row scaling - z-score normalization across row
+  matrix_scaled <- t(scale(t(matrix_averaged)))
+  
+  
+  # create complext heatmap object 
+
+  heatmap = Heatmap(
+    matrix_scaled,
+    name = title,
+    col = colorRamp2(
+    c(-3.5, 0, 3.5),  # Set color at 0 to white
+    c("navy", "white", "firebrick3")),
+  
+  # colorRampPalette(c("navy", "white", "firebrick3"))(21),
+    cluster_rows = TRUE,
+    cluster_columns = TRUE,
+
+  
+  
+    top_annotation = HeatmapAnnotation(df = annotation_df, col = annotation_colors, 
+                                       annotation_name_gp = gpar(fontsize = font),
+                                       show_annotation_name = legend, # turn off annotation name if legend = F
+                                       annotation_legend_param = list(
+                                         ncol = 4, # Set the number of columns for the legend
+                                         gp = gpar(fontsize = font),
+                                         title_gp = gpar(fontsize = font + 2), # title font size
+                                         labels_gp = gpar(fontsize = font)   # Label font size  
+      )),  # Top annotations
+    column_title = title, # add a title to the heatmap
+    show_heatmap_legend = legend,
+    show_row_names = TRUE,
+    show_column_names = FALSE,
+    border = TRUE,
+    row_gap = unit(1, "mm"),  # Customize row gaps
+    heatmap_legend_param = list(
+      title = "Z-score", legend_direction = "horizontal", side = "right", title_gp = gpar(fontsize = font+2),  # Title font size
+    labels_gp = gpar(fontsize = font)   # Label font size
+    ),
+  
+    row_names_gp = gpar(fontsize = font-8),
+    row_title_gp = gpar(fontsize = font+8),   # Row title font size
+    column_title_gp = gpar(fontsize = font+8) # Column title font size
+  )
+
+
+  
+  return(heatmap)
+}
+
+
+
+
+
+heatmap1 = create_heatmap_unordered(dataset = EV_1_day_sec, 
+                  order_treatment = c("PBS", "FT240", "OVCAR3"), 
+                  order_Pts = pt_order, 
+                  annotation_colors = my_colors,
+                  title = "1-Day Treatment, \n Secretory Cells", legend = FALSE, font = 24,
+                  gene_list = GOI_sec,
+                  split_point = 36)
+
+
+heatmap2 = create_heatmap_unordered(dataset = EV_1_day_cil, 
+                      order_treatment = c("PBS", "FT240", "OVCAR3"), 
+                      order_Pts = pt_order, 
+                      annotation_colors = my_colors,
+                      title = "1-Day Treatment, \n Ciliated Cells", font = 24,
+                      gene_list = GOI_cil,
+                      split_point = 13)
+
+heatmap1 
+
+heatmap2
+
+
+```
+
+
 
 ```{r}
 

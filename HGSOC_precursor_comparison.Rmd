@@ -887,7 +887,7 @@ for(region in c("epithelial", "stroma")) {
                      elt = "log_q", # remember: this is produced during creating the clustering heatmpa. 
                      modelFormula = ~ Lesions + (1 | Slide),  # Model formula: Lesions Type + (1| Scan_ID)
                      groupVar = "Lesions",
-                     nCores = 6, #parallel::detectCores(),
+                     nCores = 10, #parallel::detectCores(),
                      multiCore = TRUE)
 
     # format results as data.frame
@@ -1159,19 +1159,18 @@ results2 <- do.call(rbind, results2)
 
 
 ```{r}
-
-lmm_results <- results2
-
-save(lmm_results, file = "lmm_results.Rdata")
+# 
+# lmm_results <- results2
+# 
+# save(lmm_results, file = "lmm_results.Rdata")
 ```
 
 
 
 ```{r}
-# load(file = "lmm_results.Rdata")
+# load(file = "lesions_vp_data.Rdata")
 # 
-# lmm_results
-
+# lesions_vp_data
 
 ```
 
@@ -1286,23 +1285,23 @@ create_VP <- function(data = lesions_vp_data, subset = "epithelial", contrast = 
 # )
 
 
-file <- paste0(getwd(), "/analysis/1Day_Secretory_SIGNIFICANT_Trt.comparison_ttest_wilcox_0.5cutoff.xlsx")
+file <- paste0(getwd(), "/1Day_Secretory_Comparison_ttest.xlsx")
 
 library(dplyr)
 library(readxl)
 
-all_up_OVC <-read_xlsx(path = file, sheet = "PBS.vs.OVCAR3_ttest") |> 
-  arrange(log_fold) |> filter(log_fold < 0) |> pull(Marker.name)
+all_up_OVC <-read_xlsx(path = file, sheet = "PBS.vs.OVCAR3") |> 
+  arrange(log_fold) |> filter(log_fold > 0.5) |> filter(p_value < 0.05) |> pull(Gene)
 
-all_down_OVC <-read_xlsx(path = file, sheet = "PBS.vs.OVCAR3_ttest") |> 
-  arrange(log_fold) |> filter(log_fold > 0) |> pull(Marker.name)
+all_down_OVC <-read_xlsx(path = file, sheet = "PBS.vs.OVCAR3") |> 
+  arrange(log_fold) |> filter(log_fold < 0.5) |> filter(p_value < 0.05) |> pull(Gene)
 
 
-all_up_FT240 <-read_xlsx(path = file, sheet = "PBS.vs.FT240_ttest") |> 
-  arrange(log_fold) |> filter(log_fold < 0) |> pull(Marker.name)
+all_up_FT240 <-read_xlsx(path = file, sheet = "PBS.vs.FT240") |> 
+  arrange(log_fold) |> filter(log_fold > 0.5) |> filter(p_value < 0.05) |> pull(Gene)
 
-all_down_FT240 <-read_xlsx(path = file, sheet = "PBS.vs.FT240_ttest") |> 
-  arrange(log_fold) |> filter(log_fold > 0) |> pull(Marker.name)
+all_down_FT240 <-read_xlsx(path = file, sheet = "PBS.vs.FT240") |> 
+  arrange(log_fold) |> filter(log_fold < 0.5) |> filter(p_value < 0.05) |> pull(Gene)
 
 
 only_up_ovc <- all_up_OVC[!(all_up_OVC %in% all_up_FT240)]

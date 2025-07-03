@@ -122,7 +122,7 @@ PKCFiles <- dir(file.path(datadir, "pkcs"), pattern = ".pkc$",
 
 # Make sure to add correct annotation file
 SampleAnnotationFile <- 
-    dir(file.path(datadir, "annotation"), pattern = "4-24-25.xlsx$",
+    dir(file.path(datadir, "annotation"), pattern = "temp.xlsx$",
         full.names = TRUE, recursive = TRUE)
 
 
@@ -137,7 +137,7 @@ Testing creation of `readNanoStringGeoMxSet` object. If you get errors saying fi
 
 #load data
 
-allGeoMx <-
+dataEV <-
     readNanoStringGeoMxSet(dccFiles = DCCFiles,
                            pkcFiles = PKCFiles,
                            phenoDataFile = SampleAnnotationFile,
@@ -154,20 +154,7 @@ allGeoMx <-
 
 ```
 
-Check size of object, make sure there are no files from other experiments present. 
 
-Both outputs should have a sample size of 614. 
-
-```{r}
-
-dim(allGeoMx)
-
-dataEV <- allGeoMx[, allGeoMx$Experiment == "EVTreat"]
-
-dim(dataEV)
-
-
-```
 
 Check PKC files (Hs_R_NGS_CTA_v1.0.pkc)
 
@@ -201,7 +188,7 @@ Now that we have loaded the data, we can visually summarize the experimental des
 
 # select the annotations we want to show, use `` to surround column names with
 # spaces or special symbols
-count_mat <- dplyr::count(pData(dataEV), Tissue, Patient, Treatment, Days, Segment)
+count_mat <- dplyr::count(pData(dataEV), Tissue, Treatment, Days, Segment)
 
 
 
@@ -245,16 +232,27 @@ plot_sankey <- function(count_mat){
 
 ```{r fig.height=20, fig.width=20}
 
-Sankey_All <- plot_sankey(count_mat = dplyr::count(pData(dataEV), Patient, Treatment, Days, Segment))
+Sankey_All <- plot_sankey(count_mat = dplyr::count(pData(dataEV), Tissue, Treatment, Days, Segment))
 
 
-Sankey_D14 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D14), Patient, Treatment, Segment))
+Sankey_D14 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D14), Tissue, Treatment, Segment))
 
 
-Sankey_D1 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D01), Patient, Treatment, Segment))
+Sankey_D1 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D01), Tissue, Treatment, Segment))
 
 Sankey_All | (Sankey_D1 / Sankey_D14)
 
+
+get_counts <- function(data = dataEV_D01, treatment = "PBS", segment = "Ciliated"){
+  
+  data <- dplyr::count(pData(dataEV_D01), Tissue, Treatment, Segment)
+  
+  subset <- data[data$Treatment == treatment & data$Segment == segment, ]
+  
+  number <- sum(subset$n)
+  
+  return(number)
+}
 
 ```
 
@@ -735,7 +733,7 @@ Let's re-plot the Sankey diagram showing our current working dataset. This is no
 
 # select the annotations we want to show, use `` to surround column names with
 # spaces or special symbols
-count_mat <- dplyr::count(pData(target_dataEV), Tissue, Patient, Treatment, Days, Segment)
+count_mat <- dplyr::count(pData(target_dataEV), Patient, Treatment, Days, Segment)
 
 write_xlsx(count_mat, "C:/Users/j789s948/Documents/GeoMx Data Analysis/1. EV Treatment of FT Analysis/count_mat_test_2.xlsx")
 
@@ -1156,7 +1154,7 @@ tsne_day1_treatment
 The output for Supplemental Figure 2 is generated below
 
 
-```{r Supplemental Fig 2, fig.height=10, fig.width=20}
+```{r Supplemental Fig 2, fig.height=11, fig.width=20}
 
 (QC_metrics_by_day + ggtitle("Quality Controls Cutoffs 1-day and 14-day treatment comparison") | 
    QC_metrics_by_seg  + ggtitle("Quality Controls Cutoffs Ciliated and Secretory segments comparison"))/
