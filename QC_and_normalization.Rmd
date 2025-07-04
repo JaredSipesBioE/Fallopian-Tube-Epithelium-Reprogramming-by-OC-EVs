@@ -122,7 +122,7 @@ PKCFiles <- dir(file.path(datadir, "pkcs"), pattern = ".pkc$",
 
 # Make sure to add correct annotation file
 SampleAnnotationFile <- 
-    dir(file.path(datadir, "annotation"), pattern = "temp.xlsx$",
+    dir(file.path(datadir, "annotation"), pattern = "final.xlsx$",
         full.names = TRUE, recursive = TRUE)
 
 
@@ -173,11 +173,34 @@ kable(data.frame(PKCs = pkcs, modules = modules))
 Subset the data into 1-day and 14-day datasets.
 
 ```{r}
-dataEV_D14 <- dataEV[, pData(dataEV)$Days == "14-Day"]
+dataEV_D14_original <- dataEV[, pData(dataEV)$Days == "14-Day"]
 
-dataEV_D01 <- dataEV[, pData(dataEV)$Days == "1-Day"]
+dataEV_D01_original <- dataEV[, pData(dataEV)$Days == "1-Day"]
 ```
 
+```{r}
+# 
+# summary_table <- pData(dataEV_D14_original) %>%
+#   filter(!is.na(Segment), !is.na(Treatment)) %>%  # filter out blanks
+#   mutate(group = paste(Treatment, Segment, sep = ", ")) %>%
+#   mutate(group =
+#             factor(group,
+#                    levels = c("PBS, Ciliated", "PBS, Secretory","FT240, Ciliated", "FT240, Secretory", "OVCAR3, Ciliated", "OVCAR3, Secretory")
+#                    )
+#           ) |>
+#     mutate(patient =
+#             factor(Patient,
+#                    levels =  c("pt1", "pt2", "pt3", "pt4", "pt5",
+#                                "pt6", "pt7", "pt8", "pt9", "pt10",
+#                                "pt11", "pt12", "pt13", "pt14",
+#                                "pt15", "pt16", "pt17")
+#                    )
+#             ) |>
+#   count(Patient, group) |>
+#   pivot_wider(names_from = group, values_from = n, values_fill = 0)
+# 
+# write_xlsx(x = summary_table, path = paste0(getwd(), "/output_original.xlsx"))
+```
 
 
 3. Sample Overview
@@ -235,10 +258,10 @@ plot_sankey <- function(count_mat){
 Sankey_All <- plot_sankey(count_mat = dplyr::count(pData(dataEV), Tissue, Treatment, Days, Segment))
 
 
-Sankey_D14 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D14), Tissue, Treatment, Segment))
+Sankey_D14 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D14_original), Tissue, Treatment, Segment))
 
 
-Sankey_D1 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D01), Tissue, Treatment, Segment))
+Sankey_D1 <- plot_sankey(count_mat = dplyr::count(pData(dataEV_D01_original), Tissue, Treatment, Segment))
 
 Sankey_All | (Sankey_D1 / Sankey_D14)
 
@@ -1099,6 +1122,32 @@ dataEV_D14 <- EV_q_norm[, pData(EV_q_norm)$Days == "14-Day"]
 
 dataEV_D01 <- EV_q_norm[, pData(EV_q_norm)$Days == "1-Day"]
 ```
+
+```{r}
+
+summary_table <- pData(dataEV_D01) %>%
+  filter(!is.na(Segment), !is.na(Treatment)) %>%  # filter out blanks
+  mutate(group = paste(Treatment, Segment, sep = ", ")) %>%
+  mutate(group =
+            factor(group,
+                   levels = c("PBS, Ciliated", "PBS, Secretory","FT240, Ciliated", "FT240, Secretory", "OVCAR3, Ciliated", "OVCAR3, Secretory")
+                   )
+          ) |>
+    mutate(patient =
+            factor(Patient,
+                   levels =  c("pt1", "pt2", "pt3", "pt4", "pt5",
+                               "pt6", "pt7", "pt8", "pt9", "pt10",
+                               "pt11", "pt12", "pt13", "pt14",
+                               "pt15", "pt16", "pt17")
+                   )
+            ) |>
+  count(Patient, group) |>
+  pivot_wider(names_from = group, values_from = n, values_fill = 0)
+
+write_xlsx(x = summary_table, path = paste0(getwd(), "/output_postnorm.xlsx"))
+```
+
+
 
 ```{r}
 library(umap)

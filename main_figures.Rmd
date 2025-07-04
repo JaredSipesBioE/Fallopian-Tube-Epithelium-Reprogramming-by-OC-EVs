@@ -125,33 +125,35 @@ The GeoMx Object was created using the QC_and_normalization.Rmd file.
 It is not separately uploaded in the Github repository due to size and must be generated using the QC_and_normalization.Rmd file. 
 
 ```{r}
-
-# Create a new column called `Patient` that contains the new order of patient numbers. 
-# Only day1 tissue is renamed for now. 
-
-
-pData(EV_q_norm) <- pData(EV_q_norm) |> mutate(Patient = recode(Tissue,
-                                                 "461-27304" = "pt1",
-                                                 "5929-606950" = "pt2",
-                                                 "5929-607267" = "pt3",
-                                                 "5929-606994" = "pt4",
-                                                 "5929-607140" = "pt5",
-                                                 "NW71422" = "pt6",
-                                                 "461-27413" = "pt7",
-                                                 "UH00006" = "pt8",
-                                                 "UH000025" = "pt9",
-                                                 "5929-606939" = "pt10",
-                                                 "461-27444" = "pt11",
-                                                 "5929-606856" = "pt12",
-                                                 "UH000028" = "pt13",
-                                                 "5929-608036" = "pt14",
-                                                 "021355" = "pt15",
-                                                 "5929-607836" = "pt16",
-                                                 "UH00022" = "pt17",
-                                                 "461-27355" = "pt18"
-                                                 ))
+# 
+# # Create a new column called `Patient` that contains the new order of patient numbers. 
+# # Only day1 tissue is renamed for now. 
+# 
+# 
+# pData(EV_q_norm) <- pData(EV_q_norm) |> mutate(Patient = recode(Tissue,
+#                                                  "461-27304" = "pt1",
+#                                                  "5929-606950" = "pt2",
+#                                                  "5929-607267" = "pt3",
+#                                                  "5929-606994" = "pt4",
+#                                                  "5929-607140" = "pt5",
+#                                                  "NW71422" = "pt6",
+#                                                  "461-27413" = "pt7",
+#                                                  "UH00006" = "pt8",
+#                                                  "UH000025" = "pt9",
+#                                                  "5929-606939" = "pt10",
+#                                                  "461-27444" = "pt11",
+#                                                  "5929-606856" = "pt12",
+#                                                  "UH000028" = "pt13",
+#                                                  "5929-608036" = "pt14",
+#                                                  "021355" = "pt15",
+#                                                  "5929-607836" = "pt16",
+#                                                  "UH00022" = "pt17", 
+#                                                  "461-27355" = "pt18"
+#                                                  ))
 
 ```
+
+
 
 
 ## 2. New T-test
@@ -218,6 +220,7 @@ t.test_logfold <- function(obj, variable_type = "Treatment", upreg_group = "Cili
 # Separate into Day1 and Day14 Cil and Sec
 
 ```{r}
+
 dataEV_D14 <- EV_q_norm[, pData(EV_q_norm)$Days == "14-Day"]
 
 dataEV_D14_sec <- dataEV_D14[, pData(dataEV_D14)$segment == "Secretory"]
@@ -225,8 +228,37 @@ dataEV_D14_cil <- dataEV_D14[, pData(dataEV_D14)$segment == "Ciliated"]
 
 dataEV_D01 <- EV_q_norm[, pData(EV_q_norm)$Days == "1-Day"]
 
+
 dataEV_D01_sec <- dataEV_D01[, pData(dataEV_D01)$segment == "Secretory"]
 dataEV_D01_cil <- dataEV_D01[, pData(dataEV_D01)$segment == "Ciliated"]
+
+```
+
+
+to export the number of segments for supplemental table 2
+
+```{r}
+
+summary_table <- pData(dataEV_D01) %>%
+  filter(!is.na(Segment), !is.na(Treatment)) %>%  # filter out blanks
+  mutate(group = paste(Treatment, Segment, sep = ", ")) %>%
+  mutate(group =
+            factor(group, 
+                   levels = c("PBS, Ciliated", "PBS, Secretory","FT240, Ciliated", "FT240, Secretory", "OVCAR3, Ciliated", "OVCAR3, Secretory")
+                   )
+          ) |>
+    mutate(patient =
+            factor(Patient, 
+                   levels =  c("pt1", "pt2", "pt3", "pt4", "pt5", 
+                               "pt6", "pt7", "pt8", "pt9", "pt10", 
+                               "pt11", "pt12", "pt13", "pt14", 
+                               "pt15", "pt16", "pt17")
+                   )
+            ) |>
+  count(Patient, group) %>% arrange(Patient) |>
+  pivot_wider(names_from = group, values_from = n, values_fill = 0)
+
+write_xlsx(x = summary_table, path = paste0(getwd(), "/output.xlsx"))
 
 ```
 
@@ -372,11 +404,11 @@ See methods for more details.
 # MF_ovc_cil_new <- read.csv(file = paste0(source, "/cil_GO_MF_OVCAR_upreg.csv"))
 
 
-#####---CORRECTED GO ANALYSIS---#####
+#####--- GO ANALYSIS---#####
 
 
 # source of all related .xlsx files
-source <- paste0(getwd(), "/corrected_GO_analysis/")
+source <- paste0(getwd(), "/GO_analysis/")
 
 # Read in the .xlsx files to be used.
 
@@ -823,7 +855,7 @@ genes <- 40
 highlight_up_FT240_sec <-  sec_D1_PBS.vs.FT240[sec_D1_PBS.vs.FT240$log_fold > 0.5 & sec_D1_PBS.vs.FT240$p_value_t < 0.05, ]$Marker.name
 highlight_down_FT240_sec <-  sec_D1_PBS.vs.FT240[sec_D1_PBS.vs.FT240$log_fold < -0.5 & sec_D1_PBS.vs.FT240$p_value_t < 0.05, ]$Marker.name
 highlight_up_OVCAR3_sec <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold > 0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
- <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold < -0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
+highlight_dow_OVCAR3_sec <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold < -0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
 
 highlight_up_OVCAR3_sec <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold > 0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
 highlight_down_OVCAR3_sec <-  sec_D1_PBS.vs.OVCAR3[sec_D1_PBS.vs.OVCAR3$log_fold < -0.5 & sec_D1_PBS.vs.OVCAR3$p_value_t < 0.05, ]$Marker.name
@@ -1933,9 +1965,9 @@ t.test_logfold <- function(obj, variable_type = "segment", upreg_group = "Ciliat
 
 cil_v_sec_t.test_D01 <- t.test_logfold(dataEV_D01, variable_type = "segment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm")
 
-cil_v_sec_t.test_D01 <- cil_v_sec_t.test_D01 #|> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
+cil_v_sec_t.test_D01 <- cil_v_sec_t.test_D01 |> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
 
-
+# write_xlsx(cil_v_sec_t.test_D01, path = paste0(getwd(), "/1Day_CILIATED.vs.SECRETORY_segment.comparison_ttest", ".xlsx"))
 
 vp1 <- volcano_plot(df = cil_v_sec_t.test_D01, title_name = "Ciliated vs Secretory Comparison (Day 1)", highlight_genes_purple = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
 
@@ -1943,7 +1975,10 @@ vp1 <- volcano_plot(df = cil_v_sec_t.test_D01, title_name = "Ciliated vs Secreto
 
 cil_v_sec_t.test_D14 <- t.test_logfold(dataEV_D14, variable_type = "segment", upreg_group = "Ciliated", downreg_group = "Secretory", elt_name = "q_norm")
 
-cil_v_sec_t.test_D14 <- cil_v_sec_t.test_D14 #|> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
+cil_v_sec_t.test_D14 <- cil_v_sec_t.test_D14 |> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
+
+
+write_xlsx(cil_v_sec_t.test_D14, path = paste0(getwd(), "/14Day_CILIATED.vs.SECRETORY_segment.comparison_ttest", ".xlsx"))
 
 
 vp2 <- volcano_plot(df = cil_v_sec_t.test_D14, title_name = "Ciliated vs Secretory Comparison (Day14)", highlight_genes_purple = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
@@ -2111,7 +2146,7 @@ To see Supp. Fig 11 code, go to the document HGSOC_precursor_comparison.Rmd.
 
 files to load:
 
-Source: /corrected_GO_analysis
+Source: /GO_analysis
 Names:
 1. cil_downreg_FT240.xlsx
 2. cil_upreg_FT240.xlsx
@@ -2122,11 +2157,11 @@ Names:
 ```{r}
 
 
-#####---CORRECTED GO ANALYSIS---#####
+#####--- GO ANALYSIS---#####
 
 
 # source of all related .xlsx files
-source <- paste0(getwd(), "/corrected_GO_analysis/")
+source <- paste0(getwd(), "/GO_analysis/")
 
 # Read in the .xlsx files to be used.
 
@@ -2254,7 +2289,7 @@ graph_A + graph_B + graph_C + graph_D + graph_E + graph_F
 ### Load Files from Mihaela
 
 ```{r}
-kegg_and_reactome_files <- paste0(getwd(), "/corrected_GO_analysis/kegg_and_reactome/files_for_plotting")
+kegg_and_reactome_files <- paste0(getwd(), "/GO_analysis/kegg_and_reactome/files_for_plotting")
 
 
 pathway_files <- list()
