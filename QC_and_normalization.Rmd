@@ -758,7 +758,7 @@ Let's re-plot the Sankey diagram showing our current working dataset. This is no
 # spaces or special symbols
 count_mat <- dplyr::count(pData(target_dataEV), Patient, Treatment, Days, Segment)
 
-write_xlsx(count_mat, "C:/Users/j789s948/Documents/GeoMx Data Analysis/1. EV Treatment of FT Analysis/count_mat_test_2.xlsx")
+# write_xlsx(count_mat, "C:/Users/j789s948/Documents/GeoMx Data Analysis/1. EV Treatment of FT Analysis/count_mat_test_2.xlsx")
 
 
 # gather the data and plot in order: region, segment
@@ -1125,26 +1125,27 @@ dataEV_D01 <- EV_q_norm[, pData(EV_q_norm)$Days == "1-Day"]
 
 ```{r}
 
-summary_table <- pData(dataEV_D01) %>%
-  filter(!is.na(Segment), !is.na(Treatment)) %>%  # filter out blanks
-  mutate(group = paste(Treatment, Segment, sep = ", ")) %>%
-  mutate(group =
-            factor(group,
-                   levels = c("PBS, Ciliated", "PBS, Secretory","FT240, Ciliated", "FT240, Secretory", "OVCAR3, Ciliated", "OVCAR3, Secretory")
-                   )
-          ) |>
-    mutate(patient =
-            factor(Patient,
-                   levels =  c("pt1", "pt2", "pt3", "pt4", "pt5",
-                               "pt6", "pt7", "pt8", "pt9", "pt10",
-                               "pt11", "pt12", "pt13", "pt14",
-                               "pt15", "pt16", "pt17")
-                   )
-            ) |>
-  count(Patient, group) |>
-  pivot_wider(names_from = group, values_from = n, values_fill = 0)
+# summary_table <- pData(dataEV_D14) %>%
+#   filter(!is.na(Segment), !is.na(Treatment)) %>%  # filter out blanks
+#   mutate(group = paste(Treatment, Segment, sep = ", ")) %>%
+#   mutate(group =
+#             factor(group,
+#                    levels = c("PBS, Ciliated", "PBS, Secretory","FT240, Ciliated", "FT240, Secretory", "OVCAR3, Ciliated", "OVCAR3, Secretory")
+#                    )
+#           ) |>
+#     mutate(patient =
+#             factor(Patient,
+#                    levels =  c("pt1", "pt2", "pt3", "pt4", "pt5",
+#                                "pt6", "pt7", "pt8", "pt9", "pt10",
+#                                "pt11", "pt12", "pt13", "pt14",
+#                                "pt15", "pt16", "pt17")
+#                    )
+#             ) |>
+#   count(Patient, group) |>
+#   pivot_wider(names_from = group, values_from = n, values_fill = 0)
+# 
+# write_xlsx(x = summary_table, path = paste0(getwd(), "/output_postnorm.xlsx"))
 
-write_xlsx(x = summary_table, path = paste0(getwd(), "/output_postnorm.xlsx"))
 ```
 
 

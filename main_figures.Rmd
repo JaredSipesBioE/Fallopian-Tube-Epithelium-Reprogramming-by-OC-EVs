@@ -239,26 +239,26 @@ to export the number of segments for supplemental table 2
 
 ```{r}
 
-summary_table <- pData(dataEV_D01) %>%
-  filter(!is.na(Segment), !is.na(Treatment)) %>%  # filter out blanks
-  mutate(group = paste(Treatment, Segment, sep = ", ")) %>%
-  mutate(group =
-            factor(group, 
-                   levels = c("PBS, Ciliated", "PBS, Secretory","FT240, Ciliated", "FT240, Secretory", "OVCAR3, Ciliated", "OVCAR3, Secretory")
-                   )
-          ) |>
-    mutate(patient =
-            factor(Patient, 
-                   levels =  c("pt1", "pt2", "pt3", "pt4", "pt5", 
-                               "pt6", "pt7", "pt8", "pt9", "pt10", 
-                               "pt11", "pt12", "pt13", "pt14", 
-                               "pt15", "pt16", "pt17")
-                   )
-            ) |>
-  count(Patient, group) %>% arrange(Patient) |>
-  pivot_wider(names_from = group, values_from = n, values_fill = 0)
-
-write_xlsx(x = summary_table, path = paste0(getwd(), "/output.xlsx"))
+# summary_table <- pData(dataEV_D01) %>%
+#   filter(!is.na(Segment), !is.na(Treatment)) %>%  # filter out blanks
+#   mutate(group = paste(Treatment, Segment, sep = ", ")) %>%
+#   mutate(group =
+#             factor(group, 
+#                    levels = c("PBS, Ciliated", "PBS, Secretory","FT240, Ciliated", "FT240, Secretory", "OVCAR3, Ciliated", "OVCAR3, Secretory")
+#                    )
+#           ) |>
+#     mutate(patient =
+#             factor(Patient, 
+#                    levels =  c("pt1", "pt2", "pt3", "pt4", "pt5", 
+#                                "pt6", "pt7", "pt8", "pt9", "pt10", 
+#                                "pt11", "pt12", "pt13", "pt14", 
+#                                "pt15", "pt16", "pt17")
+#                    )
+#             ) |>
+#   count(Patient, group) %>% arrange(Patient) |>
+#   pivot_wider(names_from = group, values_from = n, values_fill = 0)
+# 
+# write_xlsx(x = summary_table, path = paste0(getwd(), "/output.xlsx"))
 
 ```
 
@@ -288,7 +288,7 @@ sec_D1_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D01_sec, variable_type = "Tre
 sec_D1_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
 sec_D1_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
 
-save_vp_comparisons(name = "1Day_Secretory_Comparison_ttest", PBS.vs.FT240 = sec_D1_PBS.vs.FT240, FT240.vs.OVCAR3 = sec_D1_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = sec_D1_PBS.vs.OVCAR3)
+# save_vp_comparisons(name = "1Day_Secretory_Comparison_ttest", PBS.vs.FT240 = sec_D1_PBS.vs.FT240, FT240.vs.OVCAR3 = sec_D1_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = sec_D1_PBS.vs.OVCAR3)
 
 
 # Ciliated 1 Day
@@ -297,7 +297,7 @@ cil_D1_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D01_cil, variable_type = "Tre
 cil_D1_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
 cil_D1_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D01_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
 
-save_vp_comparisons(name = "1Day_Ciliated_Comparison_ttest", PBS.vs.FT240 = cil_D1_PBS.vs.FT240, FT240.vs.OVCAR3 = cil_D1_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = cil_D1_PBS.vs.OVCAR3)
+# save_vp_comparisons(name = "1Day_Ciliated_Comparison_ttest", PBS.vs.FT240 = cil_D1_PBS.vs.FT240, FT240.vs.OVCAR3 = cil_D1_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = cil_D1_PBS.vs.OVCAR3)
 
 
 
@@ -307,7 +307,7 @@ sec_D14_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D14_sec, variable_type = "Tr
 sec_D14_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
 sec_D14_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_sec, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
 
-save_vp_comparisons(name = "14Day_Secretory_Comparison_ttest", PBS.vs.FT240 = sec_D14_PBS.vs.FT240, FT240.vs.OVCAR3 = sec_D14_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = sec_D14_PBS.vs.OVCAR3)
+# save_vp_comparisons(name = "14Day_Secretory_Comparison_ttest", PBS.vs.FT240 = sec_D14_PBS.vs.FT240, FT240.vs.OVCAR3 = sec_D14_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = sec_D14_PBS.vs.OVCAR3)
 
 
 
@@ -317,7 +317,7 @@ cil_D14_PBS.vs.FT240 <- t.test_logfold(obj = dataEV_D14_cil, variable_type = "Tr
 cil_D14_FT240.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "FT240")
 cil_D14_PBS.vs.OVCAR3 <- t.test_logfold(obj = dataEV_D14_cil, variable_type = "Treatment", upreg = "OVCAR3", downreg = "PBS")
 
-save_vp_comparisons(name = "14Day_Ciliated_Comparison_ttest", PBS.vs.FT240 = cil_D14_PBS.vs.FT240, FT240.vs.OVCAR3 = cil_D14_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = cil_D14_PBS.vs.OVCAR3)
+# save_vp_comparisons(name = "14Day_Ciliated_Comparison_ttest", PBS.vs.FT240 = cil_D14_PBS.vs.FT240, FT240.vs.OVCAR3 = cil_D14_FT240.vs.OVCAR3, PBS.vs.OVCAR3 = cil_D14_PBS.vs.OVCAR3)
 
 
 
@@ -1319,7 +1319,7 @@ GOI_cil <- c(upreg_OVC_only_cil, downreg_OVC_only_cil) # 13, 6
 
 ```{r}
 
-pt_order <- c("pt9", "pt12", "pt10", "pt6", "pt1", "pt3", "pt5", "pt7", "pt2", "pt11", "pt8", "pt4", "pt13")
+pt_order <- c("Pt9", "Pt12", "Pt10", "Pt6", "Pt1", "Pt3", "Pt5", "Pt7", "Pt2", "Pt11", "Pt8", "Pt4", "Pt13")
   #c("UH000025", "5929-606856", "5929-606939", "NW71422", "461-27304", "5929-607267", "5929-607140", "461-27413", "5929-606950", "461-27444", "UH00006", "5929-606994")
 
 
@@ -1452,7 +1452,7 @@ create_heatmap <- function(dataset = EV_1_day_sec,
   # Now, group by treatment and patient and compute the row-wise average
   averaged_df <- merged_df %>%
     group_by(Treatment, Patient) %>%
-    summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)))  # Average each row, excluding non-numeric columns
+    dplyr::summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)))  # Average each row, excluding non-numeric columns
   
   
   # create new annotation df
@@ -1978,7 +1978,7 @@ cil_v_sec_t.test_D14 <- t.test_logfold(dataEV_D14, variable_type = "segment", up
 cil_v_sec_t.test_D14 <- cil_v_sec_t.test_D14 |> dplyr::rename(c(Marker.name = Gene, p_value_t = p_value, minus_log10.p.value_t = minuslog10_Pvalue))
 
 
-write_xlsx(cil_v_sec_t.test_D14, path = paste0(getwd(), "/14Day_CILIATED.vs.SECRETORY_segment.comparison_ttest", ".xlsx"))
+# write_xlsx(cil_v_sec_t.test_D14, path = paste0(getwd(), "/14Day_CILIATED.vs.SECRETORY_segment.comparison_ttest", ".xlsx"))
 
 
 vp2 <- volcano_plot(df = cil_v_sec_t.test_D14, title_name = "Ciliated vs Secretory Comparison (Day14)", highlight_genes_purple = c("PAX8"), upreg = "Ciliated", downreg = "Secretory", FC =0.5)
